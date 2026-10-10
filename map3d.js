@@ -14,7 +14,27 @@
     { id: 'uno-boulevard', coords: [-58.98098, -27.44598], floors: 9, size: 14, address: 'Av. Sarmiento 645' },
     { id: 'torre-nbch', coords: [-58.97821, -27.44671], floors: 16, size: 20, address: 'Pellegrini 761' },
     { id: 'torre-panorama', coords: [-58.97298, -27.43918], floors: 30, size: 30, address: 'Av. Sarmiento 1502', future: true },
-    { id: 'ax-sarmiento', coords: [-58.97245, -27.43882], floors: 1, size: 10, address: 'Av. Sarmiento 1510' },
+    // Estación de servicio: techo (canopy) con frente grueso sobre dos columnas centrales y la isla de surtidores,
+    // el local vidriado detrás y el cartel tótem junto a la avenida. Medidas en metros reales.
+    // Girada 90° y ubicada dentro de la manzana (a más de 10 m del eje de Av. Sarmiento y de Av. Padre Rissione,
+    // medido sobre OpenStreetMap), fuera de la planta de Torre Panorama. El punto es el centro de la estación.
+    { id: 'ax-sarmiento', coords: [-58.97233, -27.43896], rotation: 90, address: 'Av. Sarmiento 1510',
+      volumes: [
+        // Techo: franja clara abajo, frente dorado y tapa clara arriba.
+        { offset: [3, -10], size: [24, 20], floors: 1, solid: 'slab', base: 4.8, height: 0.35 },
+        { offset: [3, -10], size: [24, 20], floors: 1, solid: 'glass', base: 5.15, height: 1.45 },
+        { offset: [3, -10], size: [24, 20], floors: 1, solid: 'slab', base: 6.6, height: 0.15 },
+        // Isla, columnas y surtidor.
+        { offset: [3, -10], size: [3.2, 16], floors: 1, solid: 'slab', base: 0, height: 0.25 },
+        ...[[3, -16], [3, -4]].map(offset => ({ offset, size: [1.8, 2.6], floors: 1, solid: 'slab', base: 0, height: 4.8 })),
+        { offset: [3, -10], size: [1.4, 3.2], floors: 1, solid: 'glass', base: 0, height: 1.8 },
+        // Local: un piso vidriado con su banda de techo.
+        { offset: [-5, 10], size: [28, 11], floors: 1 },
+        { offset: [-5, 10], size: [28.6, 11.6], floors: 1, solid: 'glass', base: 3.2, height: 0.8 },
+        // Cartel tótem.
+        { offset: [21, -22], size: [1.4, 3], floors: 1, solid: 'glass', base: 0, height: 8 },
+        { offset: [21, -22], size: [1.6, 3.2], floors: 1, solid: 'slab', base: 8, height: 0.4 }
+      ] },
     { id: 'marq-collection', coords: [-58.96737, -27.44197], floors: 7, size: 18, address: 'Av. Italia 1640 y Rissione', future: true },
     { id: 'gaba', coords: [-58.98696, -27.44674], floors: 5, size: 14, address: 'Remedios de Escalada 259 · acá está el estudio' },
     // Macrolote de ~16.000 m² junto al hipermercado Carrefour: ≈ 82 m de frente sobre Av. Ávalos por 195 m de fondo,
@@ -31,6 +51,7 @@
   ];
   // Los loteos no figuran en OpenStreetMap: se marcan zonas aproximadas a partir de la dirección publicada.
   const AREAS = [
+    { id: 'casa-bdn', coords: [-58.9478, -27.3452], radius: 200, address: 'Barrio Brisas del Norte · ubicación aproximada' },
     { id: 'gran-arboledas', coords: [-58.9455, -27.4155], radius: 420, address: 'Av. Sarmiento 4500 · ubicación aproximada' },
     { id: 'parque-arboledas', coords: [-58.9965, -27.4205], radius: 260, address: 'Av. Ávalos, a 1.000 m de la Ruta 16 · ubicación aproximada' },
     { id: 'brisas-del-norte', coords: [-58.9530, -27.3420], radius: 480, address: 'Av. Juan Manuel de Rosas 3700 · ubicación aproximada' },
@@ -43,7 +64,7 @@
   const REALITY = { start: 0, len: 60 };
   const FUTURE = { start: 66, len: 34 };
   const SEQUENCE = [
-    ...['torre-vista', 'uno-boulevard', 'gaba', 'torre-natalini', 'ax-sarmiento', 'torre-nbch', 'brisas-del-norte', 'gran-arboledas', 'parque-arboledas', 'pueblo-mio'].map(id => ({ id, ...REALITY })),
+    ...['torre-vista', 'uno-boulevard', 'gaba', 'torre-natalini', 'ax-sarmiento', 'torre-nbch', 'brisas-del-norte', 'casa-bdn', 'gran-arboledas', 'parque-arboledas', 'pueblo-mio'].map(id => ({ id, ...REALITY })),
     ...['torre-panorama', 'marq-collection', 'distrito-horizonte'].map(id => ({ id, ...FUTURE }))
   ];
   const INTRO_MS = 17000; // lo que tarda la intro en recorrer toda la línea de tiempo
@@ -103,6 +124,11 @@
         const glass = volume.size.map(side => side * 0.9);
         const full = floorsBuilt(volume, place);
         const building = progress[place.id] < 1;
+        // Volumen macizo (techo o columna): una sola pieza desde `base` hasta `base + height` metros.
+        if (volume.solid) {
+          if (full) features.push({ type: 'Feature', properties: { pid: place.id, part: volume.solid, base: volume.base * HEIGHT_SCALE, top: (volume.base + volume.height) * HEIGHT_SCALE }, geometry: { type: 'Polygon', coordinates: rect(place.coords, volume.size, volume.offset, place.rotation) } });
+          return;
+        }
         for (let floor = 0; floor < full; floor++) {
           const base = floor * FLOOR_HEIGHT;
           // El último piso construido se ve encendido mientras la obra sigue, como una losa recién hormigonada.
@@ -221,8 +247,9 @@
     if (!id) { card.hidden = true; return; }
     const item = find(id);
     const project = projectById(id);
+    const soon = SEQUENCE.some(entry => entry.id === id && entry.start === FUTURE.start);
     card.innerHTML = `<button class="map-card-close" type="button" data-map-close aria-label="Cerrar">×</button>
-      <img src="${esc(project.image)}" alt="${esc(project.imageAlt)}">
+      ${soon ? '<span class="map-card-soon">Próximamente</span>' : ''}<img src="${esc(project.image)}" alt="${esc(project.imageAlt)}">
       <div class="map-card-body">
         <span class="map-card-status">${esc(project.category)} · ${esc(project.status)}</span>
         <h3>${esc(project.name)}</h3>
@@ -440,6 +467,10 @@
   });
   document.querySelector('#map-zoom-in').addEventListener('click', () => { stopDrift(); map?.zoomIn(); });
   document.querySelector('#map-zoom-out').addEventListener('click', () => { stopDrift(); map?.zoomOut(); });
+  // Girar con el mouse pide click derecho o Ctrl + arrastrar, poco evidente: los botones giran de a 45°.
+  const rotate = degrees => { if (!map) return; stopTour(); stopDrift(); map.easeTo({ bearing: map.getBearing() + degrees, duration: reducedMotion ? 0 : 600 }); };
+  document.querySelector('#map-rotate-left').addEventListener('click', () => rotate(45));
+  document.querySelector('#map-rotate-right').addEventListener('click', () => rotate(-45));
   document.querySelector('#map-tour').addEventListener('click', () => { if (map) (touring ? stopTour(true) : startTour()); });
   // Línea de tiempo continua: arrastrarla construye o "desconstruye" la ciudad en vivo.
   const slider = document.querySelector('#map-timeline');
