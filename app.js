@@ -520,7 +520,8 @@ function renderCompany() {
   // En el celular el menú es una barra deslizable: se lleva a la vista la sección actual.
   const sidebar = companyView.querySelector('.company-sidebar');
   const selected = sidebar.querySelector('.company-nav-item.selected');
-  if (selected && sidebar.scrollWidth > sidebar.clientWidth) sidebar.scrollLeft = selected.offsetLeft - 70;
+  // Si ya entra en la primera pantalla no se desplaza, para no recortar el logo.
+  if (selected && sidebar.scrollWidth > sidebar.clientWidth && selected.offsetLeft + selected.offsetWidth > sidebar.clientWidth) sidebar.scrollLeft = selected.offsetLeft - 70;
   // En el celular cada fila de tabla se muestra como tarjeta: cada celda lleva el nombre de su columna.
   companyView.querySelectorAll('.data-table').forEach(table => {
     const heads = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
@@ -1296,8 +1297,10 @@ window.addEventListener('storage', event => {
 });
 modeToggle.addEventListener('click', () => setMode(!companyMode));
 const menuButton = document.querySelector('.menu-toggle');
-menuButton.addEventListener('click', () => { const nav = document.querySelector('.main-nav'); const isOpen = nav.classList.toggle('mobile-open'); menuButton.setAttribute('aria-expanded', String(isOpen)); menuButton.setAttribute('aria-label', isOpen ? 'Cerrar navegación' : 'Abrir navegación'); });
-document.querySelectorAll('.main-nav a').forEach(link => link.addEventListener('click', () => { document.querySelector('.main-nav').classList.remove('mobile-open'); menuButton.setAttribute('aria-expanded', 'false'); }));
+// Con el menú abierto el encabezado pasa a fondo claro sólido para que los enlaces se lean sobre cualquier sección.
+const setMenuOpen = isOpen => { document.querySelector('.main-nav').classList.toggle('mobile-open', isOpen); document.querySelector('.site-header').classList.toggle('menu-open', isOpen); menuButton.setAttribute('aria-expanded', String(isOpen)); menuButton.setAttribute('aria-label', isOpen ? 'Cerrar navegación' : 'Abrir navegación'); dispatchEvent(new Event('scroll')); };
+menuButton.addEventListener('click', () => setMenuOpen(!document.querySelector('.site-header').classList.contains('menu-open')));
+document.querySelectorAll('.main-nav a').forEach(link => link.addEventListener('click', () => setMenuOpen(false)));
 document.querySelector('.whatsapp').href = whatsappUrl(MARQ_WHATSAPP, 'Hola, quiero consultar por un proyecto de MARQ.');
 /* ---------- Landing: animaciones ---------- */
 
@@ -1422,7 +1425,7 @@ function initScrollEffects() {
     if (companyMode) return;
     const viewport = innerHeight;
     header.classList.toggle('is-scrolled', scrollY > 30);
-    header.classList.toggle('on-dark', Boolean(hero) && !document.body.classList.contains('showroom-mode') && scrollY < hero.offsetHeight - 90);
+    header.classList.toggle('on-dark', Boolean(hero) && !document.body.classList.contains('showroom-mode') && !header.classList.contains('menu-open') && scrollY < hero.offsetHeight - 90);
     const max = document.documentElement.scrollHeight - viewport;
     progress.style.transform = `scaleX(${max > 0 ? scrollY / max : 0})`;
     if (prefersReducedMotion) return;

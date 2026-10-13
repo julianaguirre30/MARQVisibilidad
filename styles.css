@@ -4505,8 +4505,14 @@ body.is-loading {
     right: 10px;
     transform: none;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-end;
     gap: 6px;
+  }
+
+  /* Los dos botones de texto llenan la primera fila; los redondos quedan juntos debajo */
+  .map-tools #map-tour,
+  .map-tools #map-overview {
+    flex: 1 1 calc(50% - 3px);
   }
 
   .map-tools button {
@@ -5733,8 +5739,9 @@ body.company-mode,
     flex-basis: 100%;
   }
 
+  /* El selector va en su propia fila para que el nombre del proyecto no se corte */
   .company-view .filter-bar select {
-    flex: 1;
+    flex: 1 1 100%;
     min-width: 0;
   }
 
@@ -5871,6 +5878,12 @@ body.company-mode,
     flex-wrap: wrap;
   }
 
+  /* El texto ocupa todo el ancho junto al avatar, así la etapa baja a su propia línea */
+  .company-view .buyer-copy {
+    flex: 1 1 calc(100% - 50px);
+    min-width: 0;
+  }
+
   .company-view .buyer-row .status-chip {
     margin-left: 50px;
   }
@@ -5904,4 +5917,10 @@ body.company-mode,
 @media (hover: none) and (pointer: coarse) {
   .hint-pointer { display: none; }
   .hint-touch { display: inline; }
+}
+
+/* Menú del celular abierto: fondo claro sólido, también sobre el hero */
+.site-header.menu-open {
+  background: var(--bg);
+  border-bottom-color: var(--line);
 }
