@@ -12,7 +12,7 @@ const CHANNELS = ['WhatsApp', 'Llamada', 'Reunión', 'Visita', 'Email', 'Instagr
 const MEETING_PLACES = { Estudio: 'el estudio', Showroom: 'el showroom', Obra: 'la obra' };
 const NEWS_TYPES = ['Avance de obra', 'Disponibilidad', 'Promoción', 'Evento', 'Modificación', 'Información relevante'];
 const PROFILES = { vivienda: { label: 'Busco mi próxima vivienda', interest: 'Vivienda propia', tab: 'Para vivir' }, inversion: { label: 'Busco oportunidades de inversión', interest: 'Inversión', tab: 'Para invertir' } };
-const STRONG_SIGNALS = ['visit'];
+const STRONG_SIGNALS = ['visit', 'proposal', 'doubt'];
 
 // Segmentos de la cartera: se atienden distinto, por eso cada uno tiene su propia vista.
 const SEGMENTS = {
@@ -311,6 +311,7 @@ const PUBLIC_URL = 'https://marqcontigo.vercel.app/';
 const showroomUrl = person => {
   const params = new URLSearchParams({ showroom: person.id, n: firstName(person) });
   if (person.showroom?.projects?.length) params.set('p', person.showroom.projects.join(','));
+  if (person.showroom?.message) params.set('m', person.showroom.message);
   return `${location.protocol === 'file:' ? PUBLIC_URL : location.href.split(/[?#]/)[0]}?${params}`;
 };
 function relativeTime(at) {
@@ -398,7 +399,8 @@ function showroomPerson() {
     showroomGuest ||= { id: showroomId, name: showroomParams.get('n') || 'Hola', projects: [...picks], interest: '', status: 'Nuevo contacto', history: [], signals: [] };
     person = showroomGuest;
   }
-  if (picks.length) person.showroom = { projects: picks, at: person.showroom?.at || todayIso() };
+  if (picks.length) person.showroom = { ...person.showroom, projects: picks, at: person.showroom?.at || todayIso() };
+  if (showroomParams.get('m')) person.showroom = { ...person.showroom, message: showroomParams.get('m').slice(0, 400) };
   return person;
 }
 const activeFilter = () => document.querySelector('.filter.active')?.dataset.filter || 'Todos';
@@ -608,47 +610,252 @@ function requestVisit(projectId) {
   renderShowroomBanner();
 }
 
-// El showroom es una página propia: solo los proyectos elegidos para el cliente, con el material
-// exclusivo (planos, brochure) y la opción de agendar una visita. La landing queda oculta.
+/* ---------- Showroom personal ----------
+   Página privada para un cliente: sus unidades con precio y cuota, un simulador y el mensaje de su asesora.
+   La landing no muestra precios; el showroom sí, porque lo recibe alguien que ya consultó. */
+
+// Condiciones orientativas por proyecto: anticipo y plazos en cuotas fijas en dólares, alquiler estimado
+// por m² y revalorización hasta la entrega. Las condiciones reales las define el estudio.
+const FINANCE = {
+  'torre-natalini': { down: 40, minDown: 30, terms: [12, 24, 36], term: 36, rent: 7 },
+  'marq-collection': { down: 30, minDown: 20, terms: [12, 36, 60, 84], term: 60, rent: 7.5, growth: 18, delivery: 'entrega 2028' },
+  'torre-panorama': { down: 30, minDown: 20, terms: [12, 36, 60, 84], term: 60, rent: 7, growth: 22, delivery: 'entrega 2029' },
+  'casa-bdn': { down: 20, minDown: 15, terms: [36, 60, 84], term: 84, rent: 6, growth: 12, delivery: 'entrega 2027' },
+  lotes: { down: 30, minDown: 20, terms: [6, 12, 24, 36], term: 12, growth: 15 }
+};
+const financeFor = id => FINANCE[id] || FINANCE.lotes;
+const USD_ARS = 1250; // tipo de cambio de referencia para ver la cuota en pesos
+const ADVISOR = { name: 'Lucía Sosa', role: 'Tu asesora en Estudio MARQ', initials: 'LS' };
+const money = value => `USD ${Math.round(value).toLocaleString('es-AR')}`;
+const pesos = value => `$ ${Math.round(value * USD_ARS).toLocaleString('es-AR')}`;
+
+// La unidad que mejor le encaja de cada proyecto: su tipología primero, después lo que entra en su presupuesto.
+function unitFor(person, project) {
+  const inventory = inventoryFor(project.id);
+  const types = (inventory?.types || []).filter(type => type.available > 0);
+  if (!types.length) return null;
+  const profile = person.profile || {};
+  const type = types.find(item => item.typology === profile.typology && (!profile.budget || item.from <= profile.budget * 1.15))
+    || types.find(item => item.typology === profile.typology)
+    || types.find(item => !profile.budget || item.from <= profile.budget * 1.1) || types[0];
+  return { project, type, total: inventory.total };
+}
+
+function whyFor(person, unit) {
+  const detail = detailFor(unit.project);
+  const budget = person.profile?.budget;
+  const investor = segmentOf(person) === 'inversor';
+  const reasons = [];
+  if (budget && unit.type.from <= budget * 1.05) reasons.push('Entra en tu presupuesto');
+  if (person.projects.includes(unit.project.id)) reasons.push('Consultaste por este proyecto');
+  if (detail.stage === 'posventa') reasons.push(investor ? 'Renta inmediata' : 'Lista para mudarte');
+  if (detail.stage === 'preventa') reasons.push('Precio de pozo');
+  if (investor && financeFor(unit.project.id).growth) reasons.push('Se revaloriza hasta la entrega');
+  if (detail.stage === 'lotes') reasons.push('Lote propio con escritura');
+  if (!reasons.length && detail.livingHint) reasons.push(detail.livingHint);
+  return reasons.slice(0, 3);
+}
+
+const srState = { sel: null, down: {}, term: {}, cur: 'USD', sent: {} };
+const srUnits = person => (person.showroom?.projects?.length ? person.showroom.projects : person.projects).map(projectById).filter(Boolean).map(project => unitFor(person, project)).filter(Boolean);
+const srReaction = (person, projectId) => [...(person.signals || [])].reverse().find(signal => ['like', 'nope'].includes(signal.type) && signal.projectId === projectId)?.type;
+const unitTitle = unit => unit.type.typology === 'Lote' ? `Lote de ${unit.type.m2} m²` : `${unit.type.typology} · ${unit.type.m2} m²`;
+
+function simulate(unit) {
+  const finance = financeFor(unit.project.id);
+  const down = srState.down[unit.project.id] ?? finance.down;
+  const term = srState.term[unit.project.id] ?? finance.term;
+  const price = unit.type.from;
+  const upfront = price * down / 100;
+  const quota = (price - upfront) / term;
+  const end = new Date(); end.setMonth(end.getMonth() + term);
+  const rent = finance.rent && unit.type.typology !== 'Lote' ? unit.type.m2 * finance.rent : 0;
+  return { finance, down, term, price, upfront, balance: price - upfront, quota, end, rent, yield: rent ? rent * 12 / price * 100 : 0 };
+}
+
+const showMoney = value => (srState.cur === 'USD' ? money(value) : pesos(value));
+
+function defaultShowroomMessage(person) {
+  const units = srUnits(person);
+  const first = units[0];
+  if (!first) return `Hola ${firstName(person)}, te armé este espacio con lo que mejor te encaja. Cualquier duda, escribime.`;
+  const why = whyFor(person, first)[0];
+  return `${firstName(person)}, te separé ${first.type.typology === 'Lote' ? `un lote de ${first.type.m2} m²` : `un ${first.type.typology} de ${first.type.m2} m²`} en ${first.project.name}${why ? ` porque ${why.charAt(0).toLowerCase()}${why.slice(1)}` : ''}.${units[1] ? ` También sumé ${units[1].project.name} para que compares.` : ''} Simulá la cuota y, si te gusta, lo vemos en persona.`;
+}
+
 function renderShowroomBanner() {
   const person = showroomPerson(); if (!person) return;
   const view = document.querySelector('#showroom-banner');
-  const ids = person.showroom?.projects?.length ? person.showroom.projects : person.projects;
-  const chosen = ids.map(projectById).filter(Boolean);
-  const asked = projectId => (person.signals || []).some(signal => signal.type === 'visit' && (signal.projectId === projectId || !signal.projectId));
-  const card = project => {
+  const units = srUnits(person);
+  if (!units.some(unit => unit.project.id === srState.sel)) srState.sel = units[0]?.project.id || null;
+  const investor = segmentOf(person) === 'inversor';
+  const message = person.showroom?.message || defaultShowroomMessage(person);
+  const visitAsked = (person.signals || []).some(signal => signal.type === 'visit');
+  const wa = whatsappUrl(MARQ_WHATSAPP, `Hola ${ADVISOR.name.split(' ')[0]}, soy ${firstName(person)}. Estoy mirando mi showroom.`);
+  const card = unit => {
+    const { project, type, total } = unit;
+    const sim = simulate(unit);
     const detail = detailFor(project);
-    const plans = officialFor(project.id)?.plans || [];
-    const videos = videosFor(project);
-    const brochure = brochuresFor(project.id)[0];
-    const cover = photosFor(project)[0]?.src || project.image;
-    return `<article class="sr-project">
-      <button type="button" class="sr-cover" data-project="${esc(project.id)}" aria-label="Ver ${esc(project.name)}"><img src="${esc(cover)}" alt="" loading="lazy"><span class="tile-status ${STATUS_TONE(project.status)}">${esc(project.status)}</span></button>
-      <div class="sr-body">
-        <span class="sr-kicker">${esc(project.category)} · ${esc(project.location)} · ${esc(STAGES[detail.stage].label)}</span>
-        <h3>${esc(project.name)}</h3>
-        ${TAGLINES[project.id] ? `<p>${esc(TAGLINES[project.id])}</p>` : ''}
-        ${plans.length ? `<div class="sr-plans">${plans.slice(0, 3).map(src => `<button type="button" data-project="${esc(project.id)}" data-tab="planos" aria-label="Ver planos"><img src="${esc(src)}" alt="" loading="lazy"></button>`).join('')}<span>${plural(plans.length, 'plano', 'planos')}<small>Solo en tu showroom</small></span></div>` : ''}
-        <div class="sr-actions">
-          ${asked(project.id) ? `<span class="sr-done">${icon('check')}Visita pedida · te escribimos</span>` : `<button type="button" class="sr-primary" data-request-visit="${esc(project.id)}">${icon('calendar')}Agendar una visita</button>`}
-          <button type="button" class="sr-secondary" data-project="${esc(project.id)}">Ver fotos${videos.length ? ' y videos' : ''}</button>
-          ${plans.length ? `<button type="button" class="sr-secondary" data-project="${esc(project.id)}" data-tab="planos">${icon('grid')}Planos</button>` : ''}
-          ${brochure ? `<a class="sr-secondary" href="${esc(brochure.url)}" target="_blank" rel="noopener" data-brochure="${esc(project.id)}">${icon('arrow-up-right')}Brochure</a>` : ''}
+    const reaction = srReaction(person, project.id);
+    const plan = (officialFor(project.id)?.plans || [])[0];
+    return `<article class="sr-unit ${srState.sel === project.id ? 'on' : ''}" data-sr-sel="${esc(project.id)}">
+      <button type="button" class="sr-unit-img" data-project="${esc(project.id)}" aria-label="Ver fotos de ${esc(project.name)}"><img src="${esc(photosFor(project)[0]?.src || project.image)}" alt="" loading="lazy">
+        <span class="sr-tag">● ${esc(STAGES[detail.stage].label)}${sim.finance.delivery ? ` · ${esc(sim.finance.delivery)}` : ''}</span>
+        <span class="sr-left ${type.available <= 2 ? 'hot' : ''}">${type.available <= 2 ? `Queda${type.available === 1 ? '' : 'n'} ${type.available} de ${total}` : `${type.available} disponibles`}</span></button>
+      <div class="sr-unit-body">
+        <span class="sr-proj">${esc(project.name)} · ${esc(project.location)}</span>
+        <h3>${esc(unitTitle(unit))}</h3>
+        <div class="sr-why">${whyFor(person, unit).map(reason => `<span>✓ ${esc(reason)}</span>`).join('')}</div>
+        <div class="sr-money">
+          <div><small>Precio desde</small><b>${money(type.from)}</b></div>
+          <div><small>o en ${sim.term} cuotas de</small><b class="gold">${money(sim.quota)}</b></div>
+          ${plan ? `<button type="button" class="sr-plan" data-project="${esc(project.id)}" data-tab="planos" aria-label="Ver planos"><img src="${esc(plan)}" alt="" loading="lazy"></button>` : ''}
         </div>
+        <div class="sr-react">
+          <button type="button" class="${reaction === 'like' ? 'on' : ''}" data-sr-react="like" data-id="${esc(project.id)}">♥ Me encanta</button>
+          <button type="button" data-sr-react="doubt" data-id="${esc(project.id)}">? Tengo una duda</button>
+          <button type="button" class="${reaction === 'nope' ? 'on' : ''}" data-sr-react="nope" data-id="${esc(project.id)}">✕ No es para mí</button>
+        </div>
+        <button type="button" class="sr-link" data-project="${esc(project.id)}">Ver fotos, videos y planos ${icon('arrow-right')}</button>
       </div>
     </article>`;
   };
   view.hidden = false;
-  view.innerHTML = `<header class="sr-head">
-      <div><span class="eyebrow"><span class="eyebrow-line"></span> TU SHOWROOM MARQ</span>
-        <h1>Hola, ${esc(firstName(person))}.</h1>
-        <p>${chosen.length ? `Elegimos ${chosen.length === 1 ? 'este proyecto' : `estos ${chosen.length} proyectos`} pensando en lo que buscás. Acá tenés las fotos, los planos${chosen.some(project => brochuresFor(project.id).length) ? ', el brochure' : ''} y podés pedir una visita cuando quieras.` : 'Preparamos este espacio para vos. Pronto vas a ver acá los proyectos que elegimos.'}</p></div>
-      <aside class="sr-advisor"><b>¿Dudas? Hablá con nosotros</b><span>Equipo comercial · Estudio MARQ</span>
-        <a href="${esc(whatsappUrl(MARQ_WHATSAPP, `Hola, soy ${firstName(person)}. Estoy mirando mi showroom.`))}" target="_blank" rel="noopener">${icon('whatsapp')}Escribir por WhatsApp</a></aside>
-    </header>
-    <div class="sr-list">${chosen.map(card).join('')}</div>
-    <footer class="sr-foot"><small>Registramos qué proyectos mirás en este espacio para asesorarte mejor. Solo lo ve el equipo de MARQ.</small><a href="${esc(location.href.split(/[?#]/)[0])}">Ver todos los proyectos de MARQ ${icon('arrow-right')}</a></footer>`;
+  view.innerHTML = `<div class="sr-top"><span class="sr-logo">marQ<small>TU SHOWROOM</small></span>
+      <span class="sr-top-actions"><a class="sr-btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">${icon('whatsapp')}Escribirle a ${esc(ADVISOR.name.split(' ')[0])}</a>${visitAsked ? '<span class="sr-btn done">✓ Visita pedida</span>' : `<button type="button" class="sr-btn gold" data-request-visit="${esc(srState.sel || '')}">${icon('calendar')}Agendar visita</button>`}</span></div>
+    <section class="sr-hero">
+      <div><span class="sr-eyebrow">Showroom de ${esc(firstName(person))}</span>
+        <h1>${esc(firstName(person))}, esto lo<br>elegimos <em>para vos.</em></h1>
+        <p>${units.length ? `${units.length === 1 ? 'Una unidad' : `${units.length} unidades`} pensada${units.length === 1 ? '' : 's'} para lo que buscás. Mirá cuánto pagarías por mes${investor ? ' y cuánto te podría dejar' : ''}.` : 'Pronto vas a ver acá las unidades que elegimos para vos.'}</p></div>
+      <aside class="sr-advisor"><div class="sr-who"><span class="sr-ph">${esc(ADVISOR.initials)}</span><div><b>${esc(ADVISOR.name)}</b><small>${esc(ADVISOR.role)}</small></div></div>
+        <p>${esc(message)}</p><a class="sr-btn wa" href="${esc(wa)}" target="_blank" rel="noopener">${icon('whatsapp')}Escribirle</a></aside>
+    </section>
+    ${units.length ? `<section class="sr-section"><span class="sr-eyebrow">Tus unidades</span><h2>${units.length === 1 ? 'La opción que elegimos para vos' : `${units.length} opciones que encajan con lo que buscás`}</h2>
+      <div class="sr-units">${units.map(card).join('')}</div></section>
+    <section class="sr-section" id="sr-sim">${simulatorHtml(person, units, investor)}</section>` : ''}
+    <footer class="sr-foot"><small>Registramos qué mirás en este espacio para asesorarte mejor. Solo lo ve el equipo de MARQ.</small><a href="${esc(location.href.split(/[?#]/)[0])}">Ver todos los proyectos de MARQ ${icon('arrow-right')}</a></footer>
+    ${units.length ? `<div class="sr-dock" id="sr-dock">${dockHtml(person, units, visitAsked)}</div>` : ''}`;
 }
+
+function simulatorHtml(person, units, investor) {
+  const unit = units.find(item => item.project.id === srState.sel) || units[0];
+  const sim = simulate(unit);
+  const termIndex = sim.finance.terms.indexOf(sim.term);
+  return `<span class="sr-eyebrow">Simulá tu cuota</span><h2>¿Cuánto pagarías por mes?</h2>
+    <div class="sr-sim">
+      <div class="sr-controls">
+        ${units.length > 1 ? `<div class="sr-seg">${units.map(item => `<button type="button" class="${item === unit ? 'on' : ''}" data-sr-sel="${esc(item.project.id)}">${esc(item.project.name)}</button>`).join('')}</div>` : ''}
+        <label class="sr-slider"><span><span>Anticipo</span><b data-out="down">${sim.down} % · ${showMoney(sim.upfront)}</b></span>
+          <input type="range" id="sr-down" min="${sim.finance.minDown}" max="100" step="5" value="${sim.down}"><small><span>${sim.finance.minDown} %</span><span>Contado</span></small></label>
+        <label class="sr-slider"><span><span>Plazo</span><b data-out="term">${sim.down >= 100 ? 'Contado' : `${sim.term} meses`}</b></span>
+          <input type="range" id="sr-term" min="0" max="${sim.finance.terms.length - 1}" step="1" value="${termIndex}" ${sim.down >= 100 ? 'disabled' : ''}><small>${sim.finance.terms.map(term => `<span>${term}</span>`).join('')}</small></label>
+        <div class="sr-cur"><span>Ver en</span><div><button type="button" class="${srState.cur === 'USD' ? 'on' : ''}" data-sr-cur="USD">Dólares</button><button type="button" class="${srState.cur === 'ARS' ? 'on' : ''}" data-sr-cur="ARS">Pesos</button></div></div>
+      </div>
+      <div class="sr-result">
+        <span class="sr-eyebrow">Tu cuota estimada · ${esc(unit.project.name)}</span>
+        <div class="sr-big" data-out="quota">${sim.down >= 100 ? 'Contado' : `${showMoney(sim.quota)}<small>/ mes</small>`}</div>
+        <p class="sr-sub" data-out="sub">${sim.down >= 100 ? `Pago total de ${showMoney(sim.price)}` : `${sim.term} cuotas fijas en dólares${srState.cur === 'ARS' ? ` · a $ ${USD_ARS.toLocaleString('es-AR')} por dólar` : ''}`}</p>
+        <div class="sr-split"><div><small>Anticipo hoy</small><b data-out="upfront">${showMoney(sim.upfront)}</b></div><div><small>Saldo en cuotas</small><b data-out="balance">${showMoney(sim.balance)}</b></div><div><small>Última cuota</small><b data-out="end">${sim.down >= 100 ? '—' : esc(new Intl.DateTimeFormat('es-AR', { month: 'short', year: 'numeric' }).format(sim.end))}</b></div></div>
+        ${investor && (sim.rent || sim.finance.growth) ? `<div class="sr-inv"><h4>✦ Como inversión</h4><div>
+          ${sim.rent ? `<div><small>Alquiler estimado</small><b>${showMoney(sim.rent)}/mes</b></div><div><small>Renta bruta anual</small><b>${sim.yield.toFixed(1).replace('.', ',')} %</b></div>` : ''}
+          ${sim.finance.growth ? `<div><small>Valor estimado al entregar</small><b>+${sim.finance.growth} %</b></div>` : '<div><small>Renta</small><b>Desde el mes 1</b></div>'}</div></div>` : ''}
+        <div class="sr-cta">${srState.sent[unit.project.id] ? '<span class="sr-btn done">✓ Propuesta pedida · te escribimos</span>' : `<button type="button" class="sr-btn gold" data-sr-proposal="${esc(unit.project.id)}">Quiero esta propuesta</button>`}</div>
+        <p class="sr-fine">Simulación orientativa en cuotas fijas. Las condiciones finales las confirma tu asesora.</p>
+      </div>
+    </div>`;
+}
+
+function dockHtml(person, units, visitAsked) {
+  const unit = units.find(item => item.project.id === srState.sel) || units[0];
+  const sim = simulate(unit);
+  return `<img src="${esc(photosFor(unit.project)[0]?.src || unit.project.image)}" alt="">
+    <div class="sr-dock-t"><b>${esc(unit.project.name)} · ${esc(unitTitle(unit))}</b><small>${sim.down >= 100 ? 'Pago contado' : `${sim.down} % de anticipo · ${sim.term} meses`}</small></div>
+    <div class="sr-dock-q"><small>Cuota estimada</small><b>${sim.down >= 100 ? showMoney(sim.price) : `${showMoney(sim.quota)}/mes`}</b></div>
+    <button type="button" class="sr-btn ghost sr-dock-doubt" data-sr-react="doubt" data-id="${esc(unit.project.id)}">? Tengo una duda</button>
+    ${visitAsked ? '<span class="sr-btn done">✓ Visita pedida</span>' : `<button type="button" class="sr-btn gold" data-request-visit="${esc(unit.project.id)}">${icon('calendar')}Agendar visita</button>`}`;
+}
+
+// Al mover un control se actualizan solo los números, para no cortar el arrastre del deslizador.
+function refreshSimulator() {
+  const person = showroomPerson(); if (!person) return;
+  const units = srUnits(person);
+  const unit = units.find(item => item.project.id === srState.sel) || units[0]; if (!unit) return;
+  const sim = simulate(unit);
+  const set = (key, html) => { const node = document.querySelector(`#sr-sim [data-out="${key}"]`); if (node) node.innerHTML = html; };
+  set('down', `${sim.down} % · ${showMoney(sim.upfront)}`);
+  set('term', sim.down >= 100 ? 'Contado' : `${sim.term} meses`);
+  set('quota', sim.down >= 100 ? 'Contado' : `${showMoney(sim.quota)}<small>/ mes</small>`);
+  set('sub', sim.down >= 100 ? `Pago total de ${showMoney(sim.price)}` : `${sim.term} cuotas fijas en dólares${srState.cur === 'ARS' ? ` · a $ ${USD_ARS.toLocaleString('es-AR')} por dólar` : ''}`);
+  set('upfront', showMoney(sim.upfront));
+  set('balance', showMoney(sim.balance));
+  set('end', sim.down >= 100 ? '—' : esc(new Intl.DateTimeFormat('es-AR', { month: 'short', year: 'numeric' }).format(sim.end)));
+  const term = document.querySelector('#sr-term'); if (term) term.disabled = sim.down >= 100;
+  const dock = document.querySelector('#sr-dock'); if (dock) dock.innerHTML = dockHtml(person, units, (person.signals || []).some(signal => signal.type === 'visit'));
+  document.querySelectorAll('.sr-unit').forEach(node => {
+    if (node.dataset.srSel !== unit.project.id) return;
+    const quota = node.querySelectorAll('.sr-money b')[1]; if (quota) quota.textContent = money(sim.quota);
+    const label = node.querySelectorAll('.sr-money small')[1]; if (label) label.textContent = `o en ${sim.term} cuotas de`;
+  });
+}
+
+document.addEventListener('input', event => {
+  if (!showroomId || !['sr-down', 'sr-term'].includes(event.target.id)) return;
+  const person = showroomPerson(); const unit = srUnits(person).find(item => item.project.id === srState.sel); if (!unit) return;
+  if (event.target.id === 'sr-down') srState.down[srState.sel] = Number(event.target.value);
+  else srState.term[srState.sel] = financeFor(srState.sel).terms[Number(event.target.value)];
+  refreshSimulator();
+});
+
+let srSimLogged = null;
+document.addEventListener('change', event => {
+  if (!showroomId || !['sr-down', 'sr-term'].includes(event.target.id)) return;
+  // Una sola señal por unidad al soltar el control, para que el equipo vea qué condiciones probó.
+  const person = showroomPerson(); const unit = srUnits(person).find(item => item.project.id === srState.sel); if (!unit) return;
+  const sim = simulate(unit);
+  const key = `${unit.project.id}|${sim.down}|${sim.term}`;
+  if (srSimLogged === key) return; srSimLogged = key;
+  logSignal('simulate', unit.project.id, `Simuló ${unitTitle(unit).toLowerCase()} en ${unit.project.name}: ${sim.down} % de anticipo${sim.down >= 100 ? '' : ` y ${sim.term} cuotas de ${money(sim.quota)}`}`);
+});
+
+document.addEventListener('click', event => {
+  if (!showroomId) return;
+  const target = event.target.closest('[data-sr-sel],[data-sr-react],[data-sr-cur],[data-sr-proposal]');
+  if (!target || (target.matches('[data-sr-sel]') && event.target.closest('[data-project]'))) return;
+  const person = showroomPerson(); if (!person) return;
+  const d = target.dataset;
+  if (d.srReact) {
+    const project = projectById(d.id);
+    if (d.srReact === 'doubt') {
+      const question = prompt(`¿Qué te gustaría saber sobre ${project.name}?`);
+      if (!question?.trim()) return;
+      logSignal('doubt', project.id, `Preguntó por ${project.name}: «${question.trim().slice(0, 110)}»`);
+      toast('Le llegó tu pregunta a tu asesora. Te responde por WhatsApp.');
+      return;
+    }
+    logSignal(d.srReact, project.id, d.srReact === 'like' ? `Le encantó ${project.name}` : `Marcó ${project.name} como «No es para mí»`);
+    renderShowroomBanner();
+    return;
+  }
+  if (d.srCur) { srState.cur = d.srCur; renderShowroomBanner(); return; }
+  if (d.srProposal) {
+    const unit = srUnits(person).find(item => item.project.id === d.srProposal); if (!unit) return;
+    const sim = simulate(unit);
+    const label = `Pidió propuesta por ${unitTitle(unit).toLowerCase()} en ${unit.project.name}: ${sim.down} % de anticipo${sim.down >= 100 ? ' (contado)' : `, ${sim.term} cuotas de ${money(sim.quota)}`}`;
+    logSignal('proposal', unit.project.id, label, who => {
+      who.nextAction = { source: 'showroom', text: `Enviar la propuesta que pidió: ${unit.project.name}, ${sim.down} % de anticipo${sim.down >= 100 ? '' : ` y ${sim.term} cuotas`}`, date: todayIso() };
+    });
+    srState.sent[unit.project.id] = true;
+    toast('¡Listo! Tu asesora te manda la propuesta por WhatsApp.');
+    renderShowroomBanner();
+    return;
+  }
+  if (d.srSel && srState.sel !== d.srSel) {
+    srState.sel = d.srSel;
+    const scroll = scrollY;
+    renderShowroomBanner();
+    scrollTo(0, scroll);
+  }
+});
 
 function initShowroom() {
   const person = showroomPerson(); if (!person) return;
@@ -1172,7 +1379,10 @@ function openShowroomDialog(person) {
     fields: `<div class="reco-tools"><button type="button" class="admin-link" data-reco-all>Seleccionar todos</button></div>
       <h3 class="reco-group">Recomendados para ${esc(firstName(person))}</h3>
       <div class="reco-list">${recommendations.map((item, index) => card(item, current ? current.includes(item.project.id) : index < 3)).join('')}</div>
-      ${others.length ? `<h3 class="reco-group">Otros proyectos</h3><div class="reco-list">${others.map(item => card(item, current?.includes(item.project.id))).join('')}</div>` : ''}`,
+      ${others.length ? `<h3 class="reco-group">Otros proyectos</h3><div class="reco-list">${others.map(item => card(item, current?.includes(item.project.id))).join('')}</div>` : ''}
+      <h3 class="reco-group">Mensaje para ${esc(firstName(person))}</h3>
+      <textarea name="message" rows="3" maxlength="400" placeholder="Si lo dejás vacío, armamos uno con las unidades elegidas.">${esc(person.showroom?.message || '')}</textarea>
+      <p class="reco-hint">Aparece arriba de su showroom, firmado por su asesora.</p>`,
     onOpen: form => form.querySelector('[data-reco-all]').addEventListener('click', event => {
       const boxes = [...form.querySelectorAll('input[name="picks"]')];
       const all = boxes.every(box => box.checked);
@@ -1182,7 +1392,7 @@ function openShowroomDialog(person) {
     submitLabel: current ? 'Guardar showroom' : 'Generar showroom',
     onSubmit: form => {
       const picks = form.getAll('picks');
-      person.showroom = { projects: picks, at: todayIso() };
+      person.showroom = { projects: picks, at: todayIso(), message: String(form.get('message') || '').trim() || undefined };
       person.history.push({ date: todayIso(), channel: 'Showroom', note: `Se ${current ? 'actualizó' : 'generó'} su showroom${picks.length ? ` con ${listJoin(picks.map(id => projectById(id)?.name).filter(Boolean))}` : ''}.` });
       person.history.sort((a, b) => a.date.localeCompare(b.date));
       toast(current ? 'Showroom actualizado' : 'Showroom generado: ya podés enviarlo');
@@ -1586,6 +1796,7 @@ async function pullSignals() {
     person.signals ||= [];
     if (person.signals.some(signal => signal.id === id)) return;
     person.signals.push({ id, at, type, projectId, label });
+    if (type === 'proposal') person.nextAction = { source: 'showroom', text: `Enviar la propuesta que pidió desde su showroom (${projectById(projectId)?.name || 'ver actividad'})`, date: todayIso() };
     if (type === 'visit') {
       const project = projectById(projectId);
       person.nextAction = { source: 'showroom', text: `Coordinar la visita al estudio que pidió desde su showroom${project ? ` (${project.name})` : ''}`, date: todayIso() };

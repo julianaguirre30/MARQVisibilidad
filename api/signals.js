@@ -5,7 +5,7 @@ const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const KEY = 'marq:signals';
 const KEEP = 1000;
-const TYPES = ['open', 'view', 'brochure', 'visit', 'profile'];
+const TYPES = ['open', 'view', 'brochure', 'visit', 'profile', 'like', 'nope', 'doubt', 'simulate', 'proposal'];
 
 const redis = command => fetch(URL_, {
   method: 'POST',
