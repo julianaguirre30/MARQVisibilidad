@@ -46,6 +46,37 @@ const PROJECT_DETAILS = {
   'brisas-del-norte': { forSale: true, profiles: ['vivienda', 'inversion'], stage: 'lotes', livingHint: 'Laguna, muelle y todos los servicios' },
   'parque-arboledas': { forSale: true, profiles: ['vivienda', 'inversion'], stage: 'lotes', livingHint: 'Predio de 6 hectáreas' }
 };
+// Amenities y servicios publicados en estudiomarq.com.ar (2026).
+const LAKE_AMENITIES = ['Laguna parquizada', 'Muelle costero', 'Actividades acuáticas', 'Áreas de recreación', 'Juegos infantiles', 'Parques', 'Reforestación autóctona', 'Reserva silvestre', 'Seguridad y circuito cerrado', 'Red de agua potable', 'Desagüe pluvial', 'Calles enripiadas'];
+const AMENITIES = {
+  'torre-natalini': ['Gimnasio y sala de yoga', 'Piscina externa', 'Terraza y solarium', 'Salón de eventos', 'Parrilla y baño exterior', 'Áreas recreativas', 'Hall de acceso y sala de estar', 'Cabina de seguridad', 'Circuito cerrado', 'Servicio de limpieza'],
+  'casa-bdn': LAKE_AMENITIES,
+  'brisas-del-norte': LAKE_AMENITIES,
+  'pueblo-mio': ['Laguna', 'Barrio privado', 'Excelentes accesos', 'Todos los servicios'],
+  'gran-arboledas': ['Reserva silvestre autóctona', 'Infraestructura completa', 'Entorno tranquilo', 'A minutos del centro']
+};
+// Brochures oficiales publicados por el estudio.
+const BROCHURES = {
+  'casa-bdn': 'https://estudiomarq.com.ar/masterplan-brochure-casas-bdn-aires-residencias/'
+};
+// Datos del sitio oficial (proyectos-oficiales.js): textos, ficha, galería, planos, videos y brochures.
+const officialFor = id => (typeof OFFICIAL_PROJECTS !== 'undefined' && OFFICIAL_PROJECTS[id]) || null;
+const amenitiesFor = id => officialFor(id)?.amenities?.length ? officialFor(id).amenities : (AMENITIES[id] || []);
+const brochuresFor = id => {
+  const list = [...(officialFor(id)?.brochures || [])];
+  if (BROCHURES[id] && !list.some(item => item.url === BROCHURES[id])) list.unshift({ label: 'Brochure', url: BROCHURES[id] });
+  return list;
+};
+// Encuadre de fotos que no se leen bien centradas (la de MARQ Collection es una pieza con el logo a la izquierda).
+const PHOTO_FOCUS = { 'https://www.libertaddigital.com.ar/content/bucket/9/69299w850h638c.png.webp': '16% center' };
+// Fotos y renders del proyecto (lo que se ve en el recuadro de la ficha).
+function photosFor(project) {
+  const official = officialFor(project.id);
+  return [...new Set([project.image, official?.hero, ...(official?.gallery || [])].filter(Boolean))].map(src => ({ kind: 'img', src }));
+}
+// Los videos solo se muestran en la pestaña Galería.
+const videosFor = project => (officialFor(project.id)?.videos || []).map(video => ({ kind: video.type, id: video.id, title: video.title, vertical: Boolean(video.vertical), thumb: video.thumb || '' }));
+const mediaThumb = item => item.kind === 'img' ? item.src : item.thumb || (item.kind === 'youtube' ? `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg` : '');
 const detailFor = project => PROJECT_DETAILS[project.id] || { forSale: false, profiles: [], stage: 'portfolio', livingHint: '' };
 
 const isoDate = date => { const d = new Date(date); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -245,7 +276,6 @@ const countWebEvent = key => {
 
 const grid = document.querySelector('#projects-grid');
 const modal = document.querySelector('#team-modal');
-const teamGrid = document.querySelector('#team-grid');
 const companyView = document.querySelector('#company-view');
 const modeToggle = document.querySelector('#mode-toggle');
 let previousFocus = null, companyMode = false;
@@ -351,48 +381,165 @@ const showroomPerson = () => showroomId ? personById(showroomId) : null;
 const activeFilter = () => document.querySelector('.filter.active')?.dataset.filter || 'Todos';
 const listJoin = items => items.length > 1 ? `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}` : items[0] || '';
 
+// En la landing no se muestran precios ni condiciones de pago: solo lo que describe el proyecto.
+const withoutPrice = text => Boolean(text) && !/(USD|\$|cuota|precio|financ)/i.test(text);
+const STATUS_TONE = status => /pozo|preventa/i.test(status) ? 'is-presale' : /obra|construcción|desarrollo/i.test(status) ? 'is-building' : /unidades/i.test(status) ? 'is-last' : 'is-selling';
+
 function renderProjects(filter = activeFilter()) {
   const displayOrder = initialProjects.map(project => project.id);
   const person = showroomPerson();
   const asked = project => Boolean(person?.projects.includes(project.id));
   const picked = project => Boolean(person?.showroom?.projects?.includes(project.id));
   const recommended = project => Boolean(currentProfile && detailFor(project).profiles.includes(currentProfile));
-  const rank = project => (asked(project) || picked(project) ? 0 : 4) + (recommended(project) ? 0 : 2) + (detailFor(project).forSale ? 0 : 1);
-  const visible = projects.filter(project => filter === 'Todos' || project.category === filter)
+  const rank = project => (asked(project) || picked(project) ? 0 : 4) + (recommended(project) ? 0 : 2);
+  const forSale = projects.filter(project => detailFor(project).forSale);
+  const visible = forSale.filter(project => filter === 'Todos' || project.category === filter)
     .sort((a, b) => rank(a) - rank(b) || displayOrder.indexOf(a.id) - displayOrder.indexOf(b.id));
-  const total = String(visible.length).padStart(2, '0');
-  grid.innerHTML = visible.length ? visible.map((project, index) => {
-    const detail = detailFor(project);
-    const flag = asked(project) ? 'Consultaste por este proyecto' : picked(project) ? 'Elegido para vos' : recommended(project) ? PROFILES[currentProfile].tab : '';
-    const hint = currentProfile === 'inversion' ? `${STAGES[detail.stage].label} · ${STAGES[detail.stage].short}` : currentProfile === 'vivienda' ? detail.livingHint : '';
-    const statusTone = /pozo|preventa/i.test(project.status) ? 'is-presale' : /obra|construcción|desarrollo/i.test(project.status) ? 'is-building' : /venta|unidades/i.test(project.status) ? 'is-selling' : '';
-    return `<article class="project-card" id="${esc(project.id)}" style="--i: ${index % 3}">
-    <div class="project-image-wrap"><img class="project-image" src="${esc(project.image)}" alt="${esc(project.imageAlt)}" loading="lazy">${flag ? `<span class="card-flag">${esc(flag)}</span>` : ''}<span class="card-status ${statusTone}">${esc(project.status)}</span><span class="image-count">${String(index + 1).padStart(2, '0')} / ${total}</span></div>
-    <div class="project-info"><div class="project-meta"><span class="project-category">${esc(project.category)}${project.year ? ` · ${esc(project.year)}` : ''}</span><span class="project-year">${esc(project.location)}</span></div>
-    <h2 class="project-title">${esc(project.name)}</h2><p class="project-description">${esc(project.description)}</p>
-    ${project.facts?.length ? `<ul class="project-facts">${project.facts.map(fact => `<li>${esc(fact)}</li>`).join('')}</ul>` : ''}${hint && detail.forSale ? `<p class="profile-hint">${esc(hint)}</p>` : ''}
-    <div class="project-actions"><button class="team-link" type="button" data-team="${esc(project.id)}">Conocé quiénes están detrás ${icon('arrow-up-right')}</button>${detail.forSale ? '' : `<span class="project-done">${/terminad/i.test(project.status) ? 'Obra realizada' : 'Próximamente'}</span>`}</div></div></article>`;
-  }).join('')
-    : `<div class="projects-empty"><p>Todavía no hay proyectos publicados en <strong>${esc(filter)}</strong>.</p><button class="text-link" type="button" data-filter-reset>Ver todos los proyectos ${icon('arrow-up-right')}</button></div>`;
-  document.querySelector('#end-note-count').textContent = visible.length ? `01 — ${total}` : '00';
+  document.querySelector('#project-count').innerHTML = `<b>${forSale.length}</b> proyectos en venta`;
+  document.querySelector('#projects-sub-count').textContent = visible.length === 1 ? '1 proyecto' : `${visible.length} proyectos`;
+  if (!visible.length) {
+    grid.innerHTML = `<div class="projects-empty"><p>Todavía no hay proyectos en venta en <strong>${esc(filter)}</strong>.</p><button class="text-link" type="button" data-filter-reset>Ver todos los proyectos ${icon('arrow-up-right')}</button></div>`;
+    return;
+  }
+  const flag = project => asked(project) ? 'Consultaste por este proyecto' : picked(project) ? 'Elegido para vos' : recommended(project) ? PROFILES[currentProfile].tab : '';
+  const line = (project, max = 2) => [...(project.facts || []).filter(withoutPrice).slice(0, max), project.location].filter(Boolean).join(' · ');
+  const hint = project => { const detail = detailFor(project); return currentProfile === 'inversion' ? STAGES[detail.stage].label : currentProfile === 'vivienda' && withoutPrice(detail.livingHint) ? detail.livingHint : ''; };
+  const badges = project => `<span class="tile-badges"><span class="tile-status ${STATUS_TONE(project.status)}">${esc(project.status)}</span>${flag(project) ? `<span class="tile-flag">${esc(flag(project))}</span>` : ''}</span>`;
+  const [feature, ...rest] = visible;
+  const minis = rest.slice(0, 4), strips = rest.slice(4);
+  const featureTile = `<article class="project-tile tile-feature" data-project="${esc(feature.id)}" tabindex="0" role="button" aria-label="Ver ${esc(feature.name)}">
+      <img src="${esc(feature.image)}" alt="${esc(feature.imageAlt || feature.name)}" loading="lazy">
+      <div class="tile-over">${badges(feature)}
+        <h3>${esc(feature.name)}</h3>
+        <p>${esc([feature.category, ...(feature.facts || []).filter(withoutPrice), feature.location, feature.year].filter(Boolean).join(' · '))}</p>
+        ${hint(feature) ? `<p class="tile-hint">${esc(hint(feature))}</p>` : ''}
+        <span class="tile-ctas"><span class="btn-primary btn-light">Conocer el proyecto ${icon('arrow-right')}</span>${videosFor(feature).length ? `<button class="tile-ghost" type="button" data-project="${esc(feature.id)}" data-tab="galeria">${icon('play')}Ver recorridos</button>` : ''}</span>
+      </div>
+    </article>`;
+  const miniTile = project => `<article class="project-tile tile-mini" data-project="${esc(project.id)}" tabindex="0" role="button" aria-label="Ver ${esc(project.name)}">
+      <div class="tile-img"><img src="${esc(project.image)}" alt="${esc(project.imageAlt || project.name)}" loading="lazy">${badges(project)}</div>
+      <div class="tile-info"><div><h3>${esc(project.name)}</h3><p>${esc(hint(project) || line(project, 1))}</p></div><span class="tile-go">${icon('arrow-up-right')}</span></div>
+    </article>`;
+  const stripTile = project => `<article class="project-tile tile-strip" data-project="${esc(project.id)}" tabindex="0" role="button" aria-label="Ver ${esc(project.name)}">
+      <img src="${esc(project.image)}" alt="${esc(project.imageAlt || project.name)}" loading="lazy">
+      <div><h3>${esc(project.name)}</h3><p>${esc(hint(project) || line(project, 1))}</p></div><span class="tile-go">${icon('arrow-up-right')}</span>
+    </article>`;
+  grid.innerHTML = `<div class="bento count-${minis.length}">${featureTile}${minis.map(miniTile).join('')}</div>${strips.length ? `<div class="bento-strips">${strips.map(stripTile).join('')}</div>` : ''}`;
 }
 
-function openTeam(id) {
+// Ficha del proyecto en un panel con pestañas. Sin precios ni condiciones de pago.
+let projectView = null;
+function openProject(id, tab = 'resumen') {
   const project = projectById(id); if (!project) return;
-  previousFocus = document.activeElement;
-  modal.querySelector('#modal-title').textContent = project.name;
-  modal.querySelector('.modal-category').textContent = project.category;
-  modal.querySelector('.modal-index').textContent = `PROYECTO ${String(projects.indexOf(project) + 1).padStart(2, '0')} / ${String(projects.length).padStart(2, '0')}`;
-  teamGrid.innerHTML = `${project.team.map(person => `<article class="person-card">${person.image ? `<img class="person-photo" src="${esc(person.image)}" alt="Retrato de ${esc(person.name)}" loading="lazy">` : `<div class="person-photo monogram" aria-hidden="true">${esc(initials(person.name.replace(/^Arq\. /, '')))}</div>`}<div class="person-content"><span class="person-role">${esc(person.role)}</span><h4 class="person-name">${esc(person.name)}</h4><p class="person-description">${esc(person.description)}</p></div></article>`).join('')}
-    <section class="public-updates"><span class="eyebrow"><span class="eyebrow-line"></span> NOVEDADES DEL PROYECTO</span><h3>Lo último de ${esc(project.name)}</h3>${project.news?.length ? project.news.map(item => `<article class="update-card"><span>${esc(formatDate(item.date))} · ${esc(item.type)}</span><h4>${esc(item.title)}</h4><p>${esc(item.body)}</p></article>`).join('') : '<p class="updates-empty">Pronto compartiremos novedades de este proyecto.</p>'}</section>`;
-  modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); document.body.classList.add('modal-open'); modal.querySelector('.modal-close').focus();
-  if (showroomPerson()) logSignal('team', id, `Conoció al equipo de ${project.name}`);
+  if (!modal.classList.contains('open')) previousFocus = document.activeElement;
+  projectView = { id, tab, media: 0, plan: null };
+  modal.querySelector('.modal-panel').classList.add('project-modal');
+  renderProjectModal();
+  modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); document.body.classList.add('modal-open');
+  modal.querySelector('.modal-close').focus();
+  if (showroomPerson()) logSignal('view', id, `Miró ${project.name}`);
 }
-function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.classList.remove('modal-open'); if (previousFocus) previousFocus.focus(); }
+
+// Bajada de cada proyecto para la ficha (sin precios ni condiciones de pago).
+const TAGLINES = {
+  'torre-natalini': 'Líneas puras, vistas panorámicas y amenities de primer nivel en el corazón de Resistencia.',
+  'marq-collection': 'Departamentos en pozo, con amenities pensados también para mascotas.',
+  'torre-panorama': 'Una torre en preventa que corre los límites de la ciudad.',
+  'casa-bdn': 'Casa y terreno propios en Brisas del Norte, a 15 minutos del centro.',
+  'pueblo-mio': 'Lotes de 400 m² entre agua y bosque, sobre la Ruta 11.',
+  'gran-arboledas': 'Un barrio residencial tranquilo, cerca de todo.',
+  'brisas-del-norte': 'Laguna parquizada y muelle, a 800 m de la Ruta 11.',
+  'parque-arboledas': 'Un entorno natural con accesos rápidos a la ruta.'
+};
+
+function renderProjectModal() {
+  const project = projectById(projectView.id);
+  const detail = detailFor(project);
+  const official = officialFor(project.id);
+  const amenities = amenitiesFor(project.id);
+  const brochures = brochuresFor(project.id);
+  const media = photosFor(project);
+  const plans = official?.plans || [];
+  const gallery = media;
+  const videos = videosFor(project);
+  const facts = (project.facts || []).filter(withoutPrice);
+  const tabs = [['resumen', 'Resumen'], ...(gallery.length > 1 || videos.length ? [['galeria', 'Galería']] : []), ...(plans.length ? [['planos', 'Planos']] : []), ...(amenities.length ? [['amenities', 'Amenities']] : []), ['novedades', 'Novedades']];
+  if (!tabs.some(([key]) => key === projectView.tab)) projectView.tab = 'resumen';
+  const current = media[Math.min(projectView.media || 0, media.length - 1)];
+  const idealFor = detail.profiles.map(key => PROFILES[key].tab.toLowerCase()).join(' y ').replace(/^./, c => c.toUpperCase());
+  const paragraphs = (official?.paragraphs?.length ? official.paragraphs : [project.description]).filter(withoutPrice);
+  const ficha = Object.entries(official?.ficha || {}).filter(([key]) => !/ubicaci/i.test(key));
+  const visitButton = showroomPerson()
+    ? `<button class="pm-cta" type="button" data-request-visit="${esc(project.id)}">${icon('calendar')}Agendar una visita</button>`
+    : `<a class="pm-cta" data-web-visit href="${esc(whatsappUrl(MARQ_WHATSAPP, `Hola, quiero conocer ${project.name}.`))}" target="_blank" rel="noopener">${icon('whatsapp')}Quiero conocerlo</a>`;
+  const thumbButton = (item, index) => `<button type="button" class="pm-thumb ${index === (projectView.media || 0) ? 'active' : ''}" data-pm-media="${index}" aria-label="Ver foto ${index + 1}"><img src="${esc(item.src)}" alt="" loading="lazy"></button>`;
+  const panels = {
+    resumen: `<h4 class="pm-heading">Sobre el proyecto</h4>
+      ${paragraphs.map(text => `<p class="pm-description">${esc(text)}</p>`).join('')}
+      ${facts.length ? `<ul class="pm-facts">${facts.map(fact => `<li>${esc(fact)}</li>`).join('')}</ul>` : ''}
+      ${official?.location?.length ? `<h4 class="pm-heading">Ubicación</h4>${official.address ? `<p class="pm-address">${icon('home')}${esc(official.address)}</p>` : ''}<p class="pm-description">${esc(official.location[0])}</p>` : ''}
+      ${amenities.length ? `<h4 class="pm-heading">Amenities y servicios</h4><ul class="pm-chips">${amenities.slice(0, 6).map(item => `<li>${esc(item)}</li>`).join('')}</ul>${amenities.length > 6 ? `<button class="text-link pm-more" type="button" data-pm-tab="amenities">Ver los ${amenities.length} ${icon('arrow-right')}</button>` : ''}` : ''}
+      ${official?.source ? `<p class="pm-source">Fuente: <a href="${esc(official.source)}" target="_blank" rel="noopener">ficha oficial en estudiomarq.com.ar ${icon('arrow-up-right')}</a></p>` : ''}`,
+    galeria: `${videos.length ? `<h4 class="pm-heading">Videos</h4><div class="pm-videos">${videos.map((item, index) => `<button type="button" class="pm-video-card" data-pm-video="${index}">${mediaThumb(item) ? `<img src="${esc(mediaThumb(item))}" alt="" loading="lazy">` : '<span class="pm-video-blank"></span>'}<span class="pm-play">${icon('play')}</span><span class="pm-video-title">${esc(item.title || 'Video del proyecto')}</span></button>`).join('')}</div>` : ''}
+      ${gallery.length ? `<h4 class="pm-heading">Fotos y renders</h4><div class="pm-gallery">${gallery.map((item, index) => `<button type="button" class="pm-shot ${index === (projectView.media || 0) ? 'active' : ''}" data-pm-media="${index}" aria-label="Ver foto ${index + 1}"><img src="${esc(item.src)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}`,
+    planos: `<h4 class="pm-heading">Planimetría</h4><div class="pm-gallery is-plans">${plans.map(src => `<button type="button" class="pm-shot" data-pm-plan="${esc(src)}"><img src="${esc(src)}" alt="Plano de ${esc(project.name)}" loading="lazy"></button>`).join('')}</div><p class="pm-source">Tocá un plano para verlo grande.</p>`,
+    amenities: `<h4 class="pm-heading">Amenities y servicios</h4><ul class="pm-amenities">${amenities.map(item => `<li>${icon('check')}${esc(item)}</li>`).join('')}</ul>`,
+    novedades: `<h4 class="pm-heading">Novedades</h4>${project.news?.length ? project.news.map(item => `<article class="update-card"><span>${esc(formatDate(item.date))} · ${esc(item.type)}</span><h4>${esc(item.title)}</h4><p>${esc(item.body)}</p></article>`).join('') : '<p class="updates-empty">Pronto compartiremos novedades de este proyecto.</p>'}`
+  };
+  modal.querySelector('.modal-scroll').innerHTML = `<div class="pm">
+    <div class="pm-media">
+       ${current ? `<img class="pm-photo" style="object-position:${PHOTO_FOCUS[current.src] || 'center'}" src="${esc(current.src)}" alt="${esc(project.name)} · foto ${(projectView.media || 0) + 1} de ${media.length}">` : ''}
+      <span class="tile-status ${STATUS_TONE(project.status)}">${esc(project.status)}</span>
+      ${media.length > 1 ? `<span class="pm-count">${(projectView.media || 0) + 1} / ${media.length}</span>
+      <button type="button" class="pm-nav prev" data-pm-media="${((projectView.media || 0) - 1 + media.length) % media.length}" aria-label="Foto anterior">${icon('arrow-left')}</button>
+      <button type="button" class="pm-nav next" data-pm-media="${((projectView.media || 0) + 1) % media.length}" aria-label="Foto siguiente">${icon('arrow-right')}</button>
+      <div class="pm-thumbs">${media.slice(0, 8).map(thumbButton).join('')}${media.length > 8 ? `<button type="button" class="pm-thumb more" data-pm-tab="galeria">+${media.length - 8}</button>` : ''}</div>` : ''}
+    </div>
+    <div class="pm-body">
+      <span class="pm-kicker">${esc(project.category)} · ${esc(project.location)}</span>
+      <h2 id="modal-title">${esc(project.name)}</h2>
+      ${TAGLINES[project.id] ? `<p class="pm-tagline">${esc(TAGLINES[project.id])}</p>` : ''}
+      <div class="pm-tabs" role="tablist">${tabs.map(([key, label]) => `<button type="button" role="tab" aria-selected="${key === projectView.tab}" class="${key === projectView.tab ? 'active' : ''}" data-pm-tab="${key}">${label}</button>`).join('')}</div>
+      <div class="pm-grid">
+        <div class="pm-panel" role="tabpanel">${panels[projectView.tab]}</div>
+        <aside class="pm-card">
+          <h4>Conocelo en persona</h4>
+          <div class="pm-card-stage"><span>Etapa</span><b>${esc(STAGES[detail.stage].label)}</b></div>
+          <dl>
+            <div><dt>Estado</dt><dd>${esc(project.status)}</dd></div>
+            ${ficha.map(([key, value]) => `<div><dt>${esc(key)}</dt><dd>${esc(value === value.toUpperCase() && /[A-Z]{3}/.test(value) ? value.charAt(0) + value.slice(1).toLowerCase() : value)}</dd></div>`).join('')}
+            <div><dt>Ubicación</dt><dd>${esc(project.location)}</dd></div>
+            ${detail.profiles.length ? `<div><dt>Ideal para</dt><dd>${esc(idealFor)}</dd></div>` : ''}
+          </dl>
+          ${visitButton}
+          ${brochures.map(item => `<a class="pm-cta-secondary" href="${esc(item.url)}" target="_blank" rel="noopener" data-brochure="${esc(project.id)}">${icon('arrow-up-right')}${esc(item.label.replace(/^Brochure .*/, 'Ver brochure'))}</a>`).join('')}
+          <a class="pm-cta-secondary" href="#mapa" data-close-modal>${icon('grid')}Verlo en el mapa</a>
+          <p class="pm-fine">Te respondemos por WhatsApp y coordinamos la visita al estudio, al showroom o a la obra.</p>
+        </aside>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openLightbox(src, alt = '', video = null) {
+  const box = document.createElement('div');
+  box.className = `lightbox ${video ? 'is-video' : ''} ${video?.vertical ? 'is-vertical' : ''}`;
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', alt || 'Imagen ampliada');
+  const player = video && (video.kind === 'youtube'
+    ? `<iframe src="https://www.youtube-nocookie.com/embed/${esc(video.id)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" title="${esc(alt)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`
+    : `<iframe src="https://player.vimeo.com/video/${esc(video.id)}?autoplay=1&playsinline=1&title=0&byline=0&portrait=0" title="${esc(alt)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`);
+  box.innerHTML = `${player || `<img src="${esc(src)}" alt="${esc(alt)}">`}<button type="button" class="lightbox-close" aria-label="Cerrar">${icon('x')}</button>`;
+  box.addEventListener('click', event => { if (event.target === box || event.target.closest('.lightbox-close')) box.remove(); });
+  document.body.append(box);
+  box.querySelector('.lightbox-close').focus();
+}
+
+function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.classList.remove('modal-open'); projectView = null; if (previousFocus) previousFocus.focus(); }
 
 function syncProfileCards() {
-  document.querySelectorAll('.profile-card').forEach(card => {
-    const selected = card.dataset.profile === currentProfile;
+  document.querySelectorAll('.profile-option').forEach(card => {
+    const selected = (card.dataset.profile === 'todos' ? null : card.dataset.profile) === currentProfile;
     card.classList.toggle('selected', selected);
     card.setAttribute('aria-pressed', String(selected));
   });
@@ -400,9 +547,11 @@ function syncProfileCards() {
 
 // Clasificación silenciosa: elegir un perfil ordena los proyectos y, en un showroom, clasifica al contacto.
 function setProfile(profile) {
+  if (profile === 'todos') profile = null;
   if (profile === currentProfile) return;
   currentProfile = profile;
   syncProfileCards();
+  if (!profile) { renderProjects(); return; }
   if (showroomPerson()) {
     logSignal('profile', null, `Eligió “${PROFILES[profile].label}”`, person => {
       person.interest = PROFILES[profile].interest;
@@ -453,10 +602,33 @@ function initShowroom() {
 
 document.addEventListener('click', event => {
   if (companyView.contains(event.target)) return;
-  const target = event.target.closest('[data-profile],[data-team],[data-request-visit],[data-web-visit],[data-filter-reset]');
+  // El enlace "Verlo en el mapa" de la ficha cierra el panel y deja que el ancla haga su trabajo.
+  if (event.target.closest('.pm [data-close-modal]')) { closeModal(); return; }
+  const brochure = event.target.closest('[data-brochure]');
+  if (brochure) { if (showroomPerson()) logSignal('brochure', brochure.dataset.brochure, `Abrió el brochure de ${projectById(brochure.dataset.brochure).name}`); return; }
+  const target = event.target.closest('[data-pm-video],[data-pm-media],[data-pm-plan],[data-pm-tab],[data-project],[data-profile],[data-team],[data-request-visit],[data-web-visit],[data-filter-reset]');
   if (!target) return;
-  if (target.dataset.profile) setProfile(target.dataset.profile);
-  else if (target.dataset.team) openTeam(target.dataset.team);
+  if (target.dataset.pmVideo !== undefined) {
+    const video = videosFor(projectById(projectView.id))[Number(target.dataset.pmVideo)];
+    openLightbox(null, video.title, video);
+    if (showroomPerson()) logSignal('view', projectView.id, `Vio el video «${video.title}»`);
+  }
+  else if (target.dataset.pmPlan) openLightbox(target.dataset.pmPlan, `Plano de ${projectById(projectView.id).name}`);
+  else if (target.dataset.pmMedia !== undefined) {
+    projectView.media = Number(target.dataset.pmMedia);
+    const body = modal.querySelector('.pm-body'); const scroll = body?.scrollTop || 0;
+    renderProjectModal();
+    if (body) modal.querySelector('.pm-body').scrollTop = scroll;
+    modal.querySelector('.pm-media')?.scrollIntoView({ block: 'nearest' });
+  }
+  else if (target.dataset.pmTab) {
+    projectView.tab = target.dataset.pmTab;
+    renderProjectModal();
+    modal.querySelector(`[data-pm-tab="${projectView.tab}"]`)?.focus();
+  }
+  else if (target.dataset.project) openProject(target.dataset.project, target.dataset.tab);
+  else if (target.dataset.profile) setProfile(target.dataset.profile);
+  else if (target.dataset.team) openProject(target.dataset.team);
   else if (target.hasAttribute('data-request-visit')) requestVisit(target.dataset.requestVisit);
   else if (target.hasAttribute('data-web-visit')) countWebEvent('visit');
   else if (target.hasAttribute('data-filter-reset')) document.querySelector('.filter[data-filter="Todos"]').click();
@@ -1328,9 +1500,15 @@ companyView.addEventListener('drop', event => {
 
 document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active')?.classList.remove('active'); button.classList.add('active'); renderProjects(button.dataset.filter); }));
 modal.querySelectorAll('[data-close-modal]').forEach(button => button.addEventListener('click', closeModal));
+// Las tarjetas de proyecto se abren también con Enter o espacio.
+document.addEventListener('keydown', event => {
+  if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.project-tile[data-project]')) { event.preventDefault(); event.target.click(); }
+});
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
   const dialog = document.querySelector('.update-dialog-backdrop');
+  const lightbox = document.querySelector('.lightbox');
+  if (lightbox) { lightbox.remove(); return; }
   if (dialog) dialog.remove();
   else if (navOpen) setNav(false);
   else if (modal.classList.contains('open')) closeModal();
