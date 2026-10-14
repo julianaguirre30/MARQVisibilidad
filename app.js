@@ -608,14 +608,46 @@ function requestVisit(projectId) {
   renderShowroomBanner();
 }
 
+// El showroom es una página propia: solo los proyectos elegidos para el cliente, con el material
+// exclusivo (planos, brochure) y la opción de agendar una visita. La landing queda oculta.
 function renderShowroomBanner() {
   const person = showroomPerson(); if (!person) return;
-  const banner = document.querySelector('#showroom-banner');
-  const names = (person.showroom?.projects?.length ? person.showroom.projects : person.projects).map(id => projectById(id)?.name).filter(Boolean);
-  const requested = person.signals?.some(signal => signal.type === 'visit');
-  banner.hidden = false;
-  banner.innerHTML = `<div><span class="eyebrow"><span class="eyebrow-line"></span> TU SHOWROOM MARQ</span><h2>Hola, ${esc(firstName(person))}. Preparamos este espacio para vos.</h2><p>Acá está todo sobre ${names.length ? esc(listJoin(names)) : 'nuestros proyectos'}: las personas que lo hacen posible, en qué etapa está y dónde queda en la ciudad. Cuando quieras, lo vemos en persona.</p></div>
-    <div class="showroom-side">${requested ? '<p class="visit-done">Listo. Te escribimos para coordinar la visita.</p>' : `<button class="team-link" type="button" data-request-visit="">Agendar una visita al estudio ${icon('calendar')}</button>`}<small>Registramos qué proyectos mirás en este espacio para asesorarte mejor. Solo lo ve el equipo de MARQ.</small></div>`;
+  const view = document.querySelector('#showroom-banner');
+  const ids = person.showroom?.projects?.length ? person.showroom.projects : person.projects;
+  const chosen = ids.map(projectById).filter(Boolean);
+  const asked = projectId => (person.signals || []).some(signal => signal.type === 'visit' && (signal.projectId === projectId || !signal.projectId));
+  const card = project => {
+    const detail = detailFor(project);
+    const plans = officialFor(project.id)?.plans || [];
+    const videos = videosFor(project);
+    const brochure = brochuresFor(project.id)[0];
+    const cover = photosFor(project)[0]?.src || project.image;
+    return `<article class="sr-project">
+      <button type="button" class="sr-cover" data-project="${esc(project.id)}" aria-label="Ver ${esc(project.name)}"><img src="${esc(cover)}" alt="" loading="lazy"><span class="tile-status ${STATUS_TONE(project.status)}">${esc(project.status)}</span></button>
+      <div class="sr-body">
+        <span class="sr-kicker">${esc(project.category)} · ${esc(project.location)} · ${esc(STAGES[detail.stage].label)}</span>
+        <h3>${esc(project.name)}</h3>
+        ${TAGLINES[project.id] ? `<p>${esc(TAGLINES[project.id])}</p>` : ''}
+        ${plans.length ? `<div class="sr-plans">${plans.slice(0, 3).map(src => `<button type="button" data-project="${esc(project.id)}" data-tab="planos" aria-label="Ver planos"><img src="${esc(src)}" alt="" loading="lazy"></button>`).join('')}<span>${plural(plans.length, 'plano', 'planos')}<small>Solo en tu showroom</small></span></div>` : ''}
+        <div class="sr-actions">
+          ${asked(project.id) ? `<span class="sr-done">${icon('check')}Visita pedida · te escribimos</span>` : `<button type="button" class="sr-primary" data-request-visit="${esc(project.id)}">${icon('calendar')}Agendar una visita</button>`}
+          <button type="button" class="sr-secondary" data-project="${esc(project.id)}">Ver fotos${videos.length ? ' y videos' : ''}</button>
+          ${plans.length ? `<button type="button" class="sr-secondary" data-project="${esc(project.id)}" data-tab="planos">${icon('grid')}Planos</button>` : ''}
+          ${brochure ? `<a class="sr-secondary" href="${esc(brochure.url)}" target="_blank" rel="noopener" data-brochure="${esc(project.id)}">${icon('arrow-up-right')}Brochure</a>` : ''}
+        </div>
+      </div>
+    </article>`;
+  };
+  view.hidden = false;
+  view.innerHTML = `<header class="sr-head">
+      <div><span class="eyebrow"><span class="eyebrow-line"></span> TU SHOWROOM MARQ</span>
+        <h1>Hola, ${esc(firstName(person))}.</h1>
+        <p>${chosen.length ? `Elegimos ${chosen.length === 1 ? 'este proyecto' : `estos ${chosen.length} proyectos`} pensando en lo que buscás. Acá tenés las fotos, los planos${chosen.some(project => brochuresFor(project.id).length) ? ', el brochure' : ''} y podés pedir una visita cuando quieras.` : 'Preparamos este espacio para vos. Pronto vas a ver acá los proyectos que elegimos.'}</p></div>
+      <aside class="sr-advisor"><b>¿Dudas? Hablá con nosotros</b><span>Equipo comercial · Estudio MARQ</span>
+        <a href="${esc(whatsappUrl(MARQ_WHATSAPP, `Hola, soy ${firstName(person)}. Estoy mirando mi showroom.`))}" target="_blank" rel="noopener">${icon('whatsapp')}Escribir por WhatsApp</a></aside>
+    </header>
+    <div class="sr-list">${chosen.map(card).join('')}</div>
+    <footer class="sr-foot"><small>Registramos qué proyectos mirás en este espacio para asesorarte mejor. Solo lo ve el equipo de MARQ.</small><a href="${esc(location.href.split(/[?#]/)[0])}">Ver todos los proyectos de MARQ ${icon('arrow-right')}</a></footer>`;
 }
 
 function initShowroom() {

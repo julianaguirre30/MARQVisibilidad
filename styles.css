@@ -9005,3 +9005,55 @@ body.company-mode .reco-card:has(input:checked) {
   .showroom-banner { grid-template-columns: 1fr; gap: 18px; padding: 24px; }
   .showroom-side { justify-items: start; max-width: none; text-align: left; }
 }
+
+/* ==========================================================================
+   Showroom personal · página propia (la landing queda oculta)
+   ========================================================================== */
+.showroom-mode #hero,
+.showroom-mode #mapa,
+.showroom-mode #proyectos,
+.showroom-mode #servicios,
+.showroom-mode .main-nav,
+.showroom-mode .header-contact,
+.showroom-mode .menu-toggle,
+.showroom-mode .scroll-progress { display: none !important; }
+.showroom-mode .showroom-banner { display: block; margin: 24px 0 64px; padding: 0; border: 0; background: none; }
+
+.sr-head { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: end; gap: 32px; padding: 36px 0 28px; border-bottom: 1px solid rgba(20, 18, 15, 0.12); }
+.sr-head h1 { margin: 12px 0 10px; font: 600 clamp(2.6rem, 5vw, 4.4rem)/0.95 "DM Sans", sans-serif; letter-spacing: -0.06em; }
+.sr-head p { max-width: 58ch; margin: 0; color: var(--muted); font-size: 1.02rem; line-height: 1.55; }
+.sr-advisor { display: grid; gap: 4px; padding: 18px; border: 1px solid var(--brand-soft); border-radius: 18px; background: #fffaf2; }
+.sr-advisor b { font-size: 0.92rem; }
+.sr-advisor span { color: var(--muted); font-size: 0.78rem; }
+.sr-advisor a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; padding: 11px 14px; border-radius: 999px; background: #00a884; color: #fff; font-size: 0.82rem; font-weight: 700; text-decoration: none; }
+
+.sr-list { display: grid; gap: 22px; margin-top: 28px; }
+.sr-project { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); overflow: hidden; border: 1px solid rgba(20, 18, 15, 0.08); border-radius: 22px; background: #fff; box-shadow: 0 24px 50px -30px rgba(30, 20, 10, 0.35); }
+.sr-cover { position: relative; min-height: 340px; padding: 0; border: 0; background: #1c1b19; cursor: pointer; }
+.sr-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+.sr-cover:hover img { transform: scale(1.03); }
+.sr-cover .tile-status { position: absolute; top: 16px; left: 16px; }
+.sr-body { display: flex; flex-direction: column; gap: 12px; padding: 28px 30px; }
+.sr-kicker { color: #8a8279; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.sr-body h3 { margin: 0; font: 600 clamp(1.8rem, 2.6vw, 2.4rem)/1 "DM Sans", sans-serif; letter-spacing: -0.05em; }
+.sr-body > p { margin: 0; color: var(--muted); line-height: 1.55; }
+.sr-plans { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px dashed var(--brand-soft); border-radius: 14px; background: #fffaf2; }
+.sr-plans button { width: 64px; height: 48px; padding: 3px; border: 1px solid rgba(20, 18, 15, 0.1); border-radius: 8px; background: #fff; cursor: pointer; }
+.sr-plans img { width: 100%; height: 100%; object-fit: contain; }
+.sr-plans span { margin-left: 6px; font-size: 0.84rem; font-weight: 700; }
+.sr-plans small { display: block; color: #7a5418; font-size: 0.68rem; font-weight: 700; }
+.sr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
+.sr-actions > * { display: inline-flex; align-items: center; gap: 7px; padding: 11px 16px; border-radius: 999px; font: inherit; font-size: 0.82rem; font-weight: 700; text-decoration: none; cursor: pointer; }
+.sr-actions .icon { width: 15px; height: 15px; }
+.sr-primary { border: 0; background: var(--ink); color: #fff; }
+.sr-secondary { border: 1px solid rgba(20, 18, 15, 0.2); background: #fff; color: var(--ink); }
+.sr-done { color: #2f6a43; background: #eaf5ee; }
+.sr-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-top: 28px; color: var(--muted); }
+.sr-foot a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-weight: 700; }
+
+@media (max-width: 900px) {
+  .sr-head { grid-template-columns: 1fr; gap: 20px; }
+  .sr-project { grid-template-columns: 1fr; }
+  .sr-cover { min-height: 230px; }
+  .sr-body { padding: 22px; }
+}
