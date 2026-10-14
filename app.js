@@ -608,7 +608,7 @@ const FINANCE = {
   lotes: { down: 30, minDown: 20, terms: [6, 12, 24, 36], term: 12, growth: 15 }
 };
 const financeFor = id => FINANCE[id] || FINANCE.lotes;
-const USD_ARS = 1250; // tipo de cambio de referencia para ver la cuota en pesos
+const USD_ARS = 1540; // tipo de cambio de referencia para ver la cuota en pesos
 const money = value => `USD ${Math.round(value).toLocaleString('es-AR')}`;
 const pesos = value => `$ ${Math.round(value * USD_ARS).toLocaleString('es-AR')}`;
 

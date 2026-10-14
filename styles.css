@@ -9150,3 +9150,60 @@ body.company-mode .reco-card:has(input:checked) {
 .pm-brochure em { display: inline-flex; align-items: center; gap: 6px; color: #d8d2c8; font-size: 0.8rem; font-style: normal; }
 .pm-brochure .icon { width: 13px; height: 13px; }
 .modal-open .sr-dock { display: none; }
+
+/* ==========================================================================
+   Ficha del cliente · jerarquía por color
+   Todo en neutros cálidos; el único bloque que resalta es "Próximo paso".
+   El verde queda solo para enviar por WhatsApp, como en la app.
+   ========================================================================== */
+/* Próximo paso: blanco con acento dorado, en vez de una segunda masa negra junto al menú */
+.company-view .now-band { background: #fff; color: var(--ink); border: 1px solid rgba(20, 18, 15, 0.1); box-shadow: inset 4px 0 0 var(--brand), 0 18px 36px -26px rgba(30, 20, 10, 0.3); }
+.company-view .now-band .next-card { color: var(--ink); padding-left: 26px; }
+.company-view .now-band .next-card .eyebrow { color: #7a5418; }
+.company-view .now-band .next-card h3 { color: var(--ink); font-size: 1.25rem; font-weight: 600; }
+.company-view .now-band .next-card p { color: #55514b; }
+.company-view .now-band .next-card .admin-primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+.company-view .now-band .next-card .admin-primary:hover { background: #000; border-color: #000; }
+.company-view .now-band .next-card .admin-link { color: var(--ink); }
+/* Resumen de la IA: información de apoyo, en tono tranquilo */
+.company-view .now-band .ai-brief { border-left: 1px solid rgba(20, 18, 15, 0.08); background: #faf8f4; color: #3b3833; }
+.company-view .now-band .ai-brief p { color: #3b3833; font-size: 0.86rem; }
+.company-view .ai-brief-label { color: #7a5418; }
+.company-view .ai-brief-label small { color: #8a8279; }
+.company-view .now-band .ai-connect { border-top-color: rgba(20, 18, 15, 0.1); color: #55514b; }
+.company-view .now-band .ai-connect > span { color: #7a5418; }
+.company-view .now-band .ai-connect button { background: var(--ink); color: #fff; }
+.company-view .now-band .ai-connect input { border-color: rgba(20, 18, 15, 0.18); }
+
+/* Columna "Quién es": todo neutro, sin cajas de color */
+.company-view .seg-badge.seg-inversor, .company-view .seg-badge.seg-particular { background: #f1ede6; color: var(--ink); }
+.who-stage { border-color: rgba(20, 18, 15, 0.14); background: #faf8f4; }
+.who-stage span { color: #55514b; }
+.who-stage select { color: var(--ink); }
+.who-showroom { border-color: rgba(20, 18, 15, 0.12); background: #faf8f4; }
+.who-showroom > b { color: var(--ink); }
+.who-showroom > div .is-send { border-color: var(--ink); background: var(--ink); color: #fff; }
+
+/* Chat: mismos neutros cálidos que el resto (sin el gris azulado de WhatsApp) */
+.company-view .wa-wall { background-color: #f4f0e9; }
+.company-view .chat-sugs, .company-view .chat-composer { background: #faf8f4; border-color: rgba(20, 18, 15, 0.08); }
+.company-view .chat-sug { border-color: rgba(20, 18, 15, 0.12); background: #fff; }
+.company-view .chat-sugs-lead { color: #7a5418; }
+.company-view .chat-btn.on { background: #ece7df; }
+.company-view .chat-btn.ai { background: #f1ede6; color: #7a5418; }
+
+/* ==========================================================================
+   Ficha del cliente estilo WhatsApp Web: conversación al centro, info del contacto a la derecha
+   ========================================================================== */
+.client-layout { grid-template-columns: minmax(0, 1fr) 330px; }
+.client-layout > .who-card { order: 2; }
+.client-layout > .client-main { order: 1; }
+@media (min-width: 1600px) { .client-layout { grid-template-columns: minmax(0, 1fr) 360px; } }
+@media (max-width: 1100px) { .client-layout { grid-template-columns: 1fr; } }
+.company-view .now-band .ai-brief p { font-size: 0.9rem; line-height: 1.5; }
+
+/* Sugerencias: se pueden ocultar con la X */
+.chat-sugs { position: relative; padding-right: 44px; }
+.chat-sugs-close { position: absolute; top: 50%; right: 10px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #6b665f; cursor: pointer; transform: translateY(-50%); }
+.chat-sugs-close:hover { background: #ece7df; color: var(--ink); }
+.chat-sugs-close .icon { width: 15px; height: 15px; }

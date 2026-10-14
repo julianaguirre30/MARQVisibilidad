@@ -166,12 +166,10 @@ function chatBrief(person) {
   let hint;
   if (!list.length) hint = `Todavía no hay conversación con ${first} por ${CHANNEL_LABEL[channel]}.`;
   else {
-    const since = dayLabel(list[0].at);
-    hint = `Hablan desde ${/^\d/.test(since) ? `el ${since}` : since.toLowerCase()} (${plural(list.length, 'mensaje', 'mensajes')})${sentAtt.length ? `; se le mandó ${listJoin(sentAtt.slice(-3))}` : ''}. `;
-    hint += last ? `Lo último que escribió ${first} (${relativeTime(last.at).toLowerCase()}): «${last.text.length > 110 ? `${last.text.slice(0, 110)}…` : last.text}».` : '';
-    hint += pending && !isAck(last.text) ? ' Todavía no se le respondió.' : ' La conversación está al día.';
+    hint = last ? `${first} escribió ${relativeTime(last.at).toLowerCase()}: «${last.text.length > 80 ? `${last.text.slice(0, 80)}…` : last.text}».` : `Se le mandó ${listJoin(sentAtt.slice(-2)) || 'información'}.`;
+    hint += pending && last && !isAck(last.text) ? ' Falta responderle.' : ' Está al día.';
   }
-  const real = aiBrief(person, channel);
+  const real = list.length ? aiBrief(person, channel) : null;
   if (real) hint = real;
   return `<div class="ai-brief">
     <span class="ai-brief-label">${icon('sparkles')}Resumen de la conversación <small>${aiEnabled() ? (real ? 'IA' : 'pensando…') : 'IA · simulada'}</small></span>
@@ -236,11 +234,12 @@ function chatPanel(person) {
     return `<button type="button" class="chat-tab ${tab === 'chat' && channel === key ? 'on' : ''}" data-chat-channel="${key}"><i class="chat-dot is-${key}">${key === 'whatsapp' ? icon('whatsapp') : key === 'messenger' ? 'm' : '◎'}</i>${CHANNEL_LABEL[key]}${count ? `<em>${count}</em>` : ''}</button>`;
   }).join('');
   const windowNote = channel === 'whatsapp' ? '' : '<span class="chat-window ok">Sin número de teléfono</span>';
-  const suggestions = (aiSuggestions(person, channel) || chatSuggestions(person, channel));
+  const sugsHidden = chatUi.sugsHidden?.[person.id] === chatSig(person, channel);
+  const suggestions = sugsHidden ? [] : (aiSuggestions(person, channel) || chatSuggestions(person, channel));
   const body = tab === 'actividad'
     ? `<div class="chat-activity">${activityPanel(person)}</div>`
     : `<div class="wa-wall" id="wa-wall">${list.length ? wall : `<div class="wa-empty">${icon(channel === 'whatsapp' ? 'whatsapp' : 'sparkles')}<b>Todavía no hay conversación por ${CHANNEL_LABEL[channel]}</b><span>Escribile para empezar.</span></div>`}${chatUi.typing[person.id] ? '<div class="wa-msg in typing"><span></span><span></span><span></span></div>' : ''}</div>
-      ${suggestions.length ? `<div class="chat-sugs"><span class="chat-sugs-lead">${icon('sparkles')}Sugerencias</span>${suggestions.map((text, index) => `<button type="button" class="chat-sug" data-chat-sug="${index}" data-text="${esc(text)}">${esc(text)}</button>`).join('')}</div>` : ''}
+      ${suggestions.length ? `<div class="chat-sugs"><span class="chat-sugs-lead">${icon('sparkles')}Sugerencias</span>${suggestions.map((text, index) => `<button type="button" class="chat-sug" data-chat-sug="${index}" data-text="${esc(text)}">${esc(text)}</button>`).join('')}<button type="button" class="chat-sugs-close" data-chat-sugs-close aria-label="Ocultar sugerencias">${icon('x')}</button></div>` : ''}
       ${chatUi.assist ? assistPanel(person) : ''}
       <div class="chat-composer">
         <button type="button" class="chat-btn ${chatUi.menu ? 'on' : ''}" data-chat-menu aria-label="Adjuntar">${icon('paperclip')}</button>
@@ -385,11 +384,11 @@ function aiSuggestions(person, channel) {
 
 function aiBrief(person, channel) {
   const sig = `${chatSig(person, channel)}:${person.history?.length || 0}`;
-  aiFetch('brief', person.id, sig, () => groq([
-    { role: 'system', content: `Sos asistente del equipo comercial de Estudio MARQ. Resumí TODA la conversación para alguien del equipo que la retoma, en 2 o 3 oraciones y en tercera persona: de qué se habló y qué se le mandó, y poné el énfasis en lo último (qué dijo o pidió el cliente al final y si quedó algo sin responder). No escribas un mensaje para el cliente, no saludes y no des órdenes. No inventes nada que no esté en la conversación.` },
+  aiFetch('brief', person.id, `${sig}:corto`, () => groq([
+    { role: 'system', content: `Sos asistente del equipo comercial de Estudio MARQ. Resumí la conversación para alguien del equipo que la retoma, en UNA o DOS oraciones cortas (máximo 30 palabras), usando el nombre del cliente: lo esencial de lo hablado y, sobre todo, qué pidió al final y si falta responderle. No escribas un mensaje para el cliente, no saludes y no des órdenes. No inventes nada que no esté en la conversación.` },
     { role: 'user', content: `Cliente: ${person.name}\n\nConversación completa por ${CHANNEL_LABEL[channel]}:\n${transcript(person, channel, 200) || '(sin mensajes)'}` },
   ], { temperature: 0.4 }));
-  return aiValue('brief', person.id, sig);
+  return aiValue('brief', person.id, `${sig}:corto`);
 }
 
 const TONE_HINT = { cordial: 'cordial y cercano', formal: 'más formal y profesional (sin dejar el voseo)', corto: 'lo más breve posible, una sola oración' };
@@ -498,11 +497,12 @@ function shrinkImage(file) {
 }
 
 companyView.addEventListener('click', event => {
-  const target = event.target.closest('[data-chat-channel],[data-chat-activity],[data-chat-menu],[data-chat-attach],[data-chat-assist],[data-chat-tone],[data-chat-use],[data-chat-sug],[data-chat-send],[data-chat-picker-close],[data-chat-pproject],[data-chat-ptype],[data-chat-pitem],[data-chat-psend],[data-chat-zoom],[data-chat-video],[data-chat-profile],[data-chat-focus]');
+  const target = event.target.closest('[data-chat-sugs-close],[data-chat-channel],[data-chat-activity],[data-chat-menu],[data-chat-attach],[data-chat-assist],[data-chat-tone],[data-chat-use],[data-chat-sug],[data-chat-send],[data-chat-picker-close],[data-chat-pproject],[data-chat-ptype],[data-chat-pitem],[data-chat-psend],[data-chat-zoom],[data-chat-video],[data-chat-profile],[data-chat-focus]');
   if (!target) return;
   const person = currentChatPerson() || personById(target.dataset.chatFocus);
   if (!person) return;
   const d = target.dataset;
+  if (d.chatSugsClose !== undefined) { (chatUi.sugsHidden ||= {})[person.id] = chatSig(person, preferredChannel(person)); renderChat({ keepScroll: true, focus: false }); return; }
   if (d.chatFocus !== undefined) { chatUi.tab[person.id] = 'chat'; renderChat(); companyView.querySelector('#chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   if (d.chatChannel) { chatUi.channel[person.id] = d.chatChannel; chatUi.tab[person.id] = 'chat'; chatUi.menu = false; chatUi.picker = null; renderChat(); }
   else if (d.chatActivity !== undefined) { chatUi.tab[person.id] = 'actividad'; chatUi.menu = false; renderChat({ focus: false }); }
