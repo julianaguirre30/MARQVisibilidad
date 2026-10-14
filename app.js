@@ -365,6 +365,10 @@ const ICON_PATHS = {
   stop: '<rect width="14" height="14" x="5" y="5" rx="2"/>',
   grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   whatsapp: '<path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5Z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5"/>',
+  paperclip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  send: '<path d="M14.54 21.69a.5.5 0 0 0 .94-.03l6.5-19a.5.5 0 0 0-.64-.64l-19 6.5a.5.5 0 0 0-.03.94l7.93 3.18a2 2 0 0 1 1.11 1.11z"/><path d="m21.85 2.15-10.94 10.94"/>',
+  image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
   'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
 };
 const FILLED_ICONS = ['play', 'stop'];
@@ -692,7 +696,7 @@ function setMode(enabled) {
   document.body.classList.toggle('company-mode', enabled);
   document.querySelector('main').hidden = enabled;
   document.querySelector('footer').hidden = enabled;
-  document.querySelector('.whatsapp').hidden = enabled;
+  document.querySelector('a.whatsapp').hidden = enabled;
   companyView.hidden = !enabled;
   followup = null; navOpen = false;
   document.body.classList.remove('nav-open');
@@ -712,6 +716,7 @@ function setNav(open) {
 function go(nextView) {
   if (nextView.name !== view.name && nextView.name !== 'contacto' && view.name !== 'contacto') listFilters = { query: '', project: '' };
   view = nextView; navOpen = false;
+  if (typeof chatUi !== 'undefined') Object.assign(chatUi, { menu: false, picker: null, assist: null });
   renderCompany(); scrollToTop();
 }
 
@@ -751,6 +756,8 @@ function renderCompany() {
     </div>
   </div>`;
   document.body.classList.toggle('nav-open', navOpen);
+  const wall = companyView.querySelector('#wa-wall');
+  if (wall) wall.scrollTop = wall.scrollHeight;
   // En el celular cada fila de tabla se muestra como tarjeta: cada celda lleva el nombre de su columna.
   companyView.querySelectorAll('.data-table').forEach(table => {
     const heads = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
@@ -1019,24 +1026,23 @@ function renderContact(person) {
       </div>
       <div class="contact-hero-actions">
         <label class="status-field"><span>Etapa</span><select id="contact-status-select" class="status-select">${options(STATUSES, person.status)}</select></label>
-        <a class="admin-secondary" href="${esc(whatsappUrl(person.phone))}" target="_blank" rel="noopener">${icon('whatsapp')}WhatsApp</a>
+        <button class="admin-secondary" type="button" data-chat-focus="${esc(person.id)}">${icon('whatsapp')}Escribir</button>
         <button class="admin-secondary" data-action="meeting" data-id="${esc(person.id)}">${icon('calendar')}Agendar reunión</button>
         <button class="admin-secondary" data-action="edit-contact" data-id="${esc(person.id)}">${icon('pencil')}Editar</button>
       </div>
     </header>
     <div class="contact-next">${nextCard(person)}</div>
-    <div class="contact-trio">
-      <section class="admin-panel"><div class="admin-panel-head"><div><h2>Datos comerciales</h2><p>Lo que hay que saber antes de ofrecerle algo.</p></div></div>
-        <dl class="summary-grid">
-          ${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${fill(value)}</dd></div>`).join('')}
-        </dl>
-      </section>
-      ${showroomPanel(person)}
-      ${teamCard(person)}
-    </div>
-    <div class="contact-layout">
-      ${activityPanel(person)}
-      ${notesPanel(person)}
+    <div class="contact-work">
+      ${typeof chatPanel === 'function' ? chatPanel(person) : activityPanel(person)}
+      <aside class="contact-aside">
+        ${typeof chatBrief === 'function' ? chatBrief(person) : ''}
+        ${teamCard(person)}
+        <details class="fold-card"><summary><b>Datos comerciales</b><small>${esc(rows.slice(0, 2).map(([, value]) => value).filter(Boolean).join(' · ') || 'Sin completar')}</small></summary>
+          <dl class="summary-grid">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${fill(value)}</dd></div>`).join('')}</dl>
+        </details>
+        <details class="fold-card"><summary><b>Showroom personal</b><small>${person.showroom ? `${person.showroom.projects.length} proyectos elegidos` : 'Sin generar'}</small></summary>${showroomPanel(person)}</details>
+        <details class="fold-card"><summary><b>Notas y novedades</b><small>${esc(person.notes ? `${person.notes.slice(0, 40)}${person.notes.length > 40 ? '…' : ''}` : 'Sin notas')}</small></summary>${notesPanel(person)}</details>
+      </aside>
     </div>`;
 }
 
@@ -1539,7 +1545,7 @@ const menuButton = document.querySelector('.menu-toggle');
 const setMenuOpen = isOpen => { document.querySelector('.main-nav').classList.toggle('mobile-open', isOpen); document.querySelector('.site-header').classList.toggle('menu-open', isOpen); menuButton.setAttribute('aria-expanded', String(isOpen)); menuButton.setAttribute('aria-label', isOpen ? 'Cerrar navegación' : 'Abrir navegación'); dispatchEvent(new Event('scroll')); };
 menuButton.addEventListener('click', () => setMenuOpen(!document.querySelector('.site-header').classList.contains('menu-open')));
 document.querySelectorAll('.main-nav a').forEach(link => link.addEventListener('click', () => setMenuOpen(false)));
-document.querySelector('.whatsapp').href = whatsappUrl(MARQ_WHATSAPP, 'Hola, quiero consultar por un proyecto de MARQ.');
+document.querySelector('a.whatsapp').href = whatsappUrl(MARQ_WHATSAPP, 'Hola, quiero consultar por un proyecto de MARQ.');
 /* ---------- Landing: animaciones ---------- */
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1713,7 +1719,7 @@ window.addEventListener('message', event => {
   const cmd = event.data && event.data.marqDemo;
   if (!cmd) return;
   if (cmd.prepare) {
-    document.querySelector('.whatsapp').hidden = true;
+    document.querySelector('a.whatsapp').hidden = true;
     document.querySelector('#mapa .city-stage').scrollIntoView({ block: 'center' });
   }
   if (cmd.slider != null) {
