@@ -174,7 +174,7 @@ function chatBrief(person) {
   const real = aiBrief(person, channel);
   if (real) hint = real;
   return `<div class="ai-brief">
-    <span class="ai-brief-label">${icon('sparkles')}Resumen de la conversación <small>${groqKey() ? (real ? 'IA' : 'pensando…') : 'IA · simulada'}</small></span>
+    <span class="ai-brief-label">${icon('sparkles')}Resumen de la conversación <small>${aiEnabled() ? (real ? 'IA' : 'pensando…') : 'IA · simulada'}</small></span>
     <p>${esc(hint)}</p>
     ${aiConnectBox()}
   </div>`;
@@ -293,7 +293,7 @@ function projectPicker(person) {
 }
 const projects_forSale = () => projects.filter(project => detailFor(project).forSale);
 
-const improvedDraft = (person, draft, tone) => (groqKey() && aiImprove(person, draft, tone)) || improveText(draft, tone, person);
+const improvedDraft = (person, draft, tone) => (aiEnabled() && aiImprove(person, draft, tone)) || improveText(draft, tone, person);
 
 function assistPanel(person) {
   const draft = (chatUi.draft[person.id] || '').trim();
@@ -317,18 +317,30 @@ function assistPanel(person) {
 const GROQ_MODEL = 'openai/gpt-oss-120b';
 const GROQ_STORE = 'marq-groq-key';
 const groqKey = () => { try { return localStorage.getItem(GROQ_STORE) || window.GROQ_KEY || ''; } catch { return window.GROQ_KEY || ''; } };
+// Publicado en Vercel, la IA pasa por /api/groq y la clave queda guardada en el servidor.
+let aiProxy = false;
+const aiEnabled = () => Boolean(groqKey()) || aiProxy;
 const aiCache = { sugs: {}, brief: {}, improve: {}, pending: new Set() };
+if (!groqKey() && /^https?:$/.test(location.protocol)) {
+  fetch('/api/groq').then(res => (res.ok ? res.json() : null)).then(data => {
+    if (!data?.configured) return;
+    aiProxy = true;
+    if (currentChatPerson()) renderChat({ keepScroll: true, focus: false });
+  }).catch(() => {});
+}
 const AI_RULES = 'Reglas: español rioplatense con voseo siempre (avisame, querés, podés; nunca avísame ni quieres), mensajes cortos como de WhatsApp, sin emojis de más. Nunca inventes precios, cuotas, valores, financiación ni fechas que no estén en los datos; si piden precio, se ofrece enviar una propuesta con valores actualizados.';
 
 async function groq(messages, { json = false, temperature = 0.7 } = {}) {
   const key = groqKey();
-  if (!key) throw new Error('sin clave');
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature, max_tokens: 1200, reasoning_effort: 'low', ...(json ? { response_format: { type: 'json_object' } } : {}) }),
-  });
-  if (!res.ok) { if (res.status === 401) toast('La clave de Groq no es válida'); throw new Error(`Groq ${res.status}`); }
+  if (!key && !aiProxy) throw new Error('sin clave');
+  const res = key
+    ? await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model: GROQ_MODEL, messages, temperature, max_tokens: 1200, reasoning_effort: 'low', ...(json ? { response_format: { type: 'json_object' } } : {}) }),
+    })
+    : await fetch('/api/groq', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages, json, temperature }) });
+  if (!res.ok) { if (res.status === 401 && key) toast('La clave de Groq no es válida'); throw new Error(`Groq ${res.status}`); }
   const data = await res.json();
   const text = data.choices?.[0]?.message?.content?.trim() || '';
   return json ? JSON.parse(text) : text;
@@ -350,7 +362,7 @@ const chatSig = (person, channel) => `${channel}:${chatMessages(person, channel)
 // Pide algo al modelo una sola vez por estado de la conversación y vuelve a dibujar al llegar.
 function aiFetch(bucket, id, sig, task) {
   const tag = `${bucket}|${id}|${sig}`;
-  if (!groqKey() || aiCache.pending.has(tag) || aiCache[bucket][id]?.sig === sig) return;
+  if (!aiEnabled() || aiCache.pending.has(tag) || aiCache[bucket][id]?.sig === sig) return;
   aiCache.pending.add(tag);
   task().then(value => {
     aiCache[bucket][id] = { sig, value };
@@ -397,7 +409,7 @@ async function aiClientReply(person, channel) {
   ], { temperature: 0.9 });
 }
 
-const aiConnectBox = () => groqKey()
+const aiConnectBox = () => aiEnabled()
   ? ''
   : `<form class="ai-connect" data-ai-form><span>Conectá Groq para que la IA sea real</span><div><input type="password" name="key" placeholder="Pegá tu clave gsk_…" autocomplete="off"><button type="submit">Conectar</button></div><small>Se guarda solo en este navegador. Creala en console.groq.com/keys.</small></form>`;
 
@@ -444,7 +456,7 @@ function simulateReply(person, channel, sent) {
     : sent.some(item => item.att) ? '¡Gracias! Me encantan.'
     : /\?\s*$/.test(sent[sent.length - 1].text) ? 'Sí, dale. Me viene bien.'
     : 'Perfecto, ¡muchas gracias!';
-  const reply = groqKey() ? aiClientReply(person, channel).catch(() => answers) : Promise.resolve(answers);
+  const reply = aiEnabled() ? aiClientReply(person, channel).catch(() => answers) : Promise.resolve(answers);
   const typingAt = new Promise(done => setTimeout(done, 3200));
   typingAt.then(() => { chatUi.typing[person.id] = true; if (currentChatPerson()?.id === person.id) renderChat({ keepScroll: false, focus: false }); });
   Promise.all([reply, typingAt.then(() => new Promise(done => setTimeout(done, 2000)))]).then(([text]) => {
@@ -539,7 +551,7 @@ companyView.addEventListener('input', event => {
     chatUi.assistTimer = setTimeout(() => {
       const box = companyView.querySelector('.chat-assist');
       if (box) box.outerHTML = assistPanel(person);
-    }, groqKey() ? 700 : 0);
+    }, aiEnabled() ? 700 : 0);
   }
 });
 

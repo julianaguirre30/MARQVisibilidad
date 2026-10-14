@@ -8994,3 +8994,7 @@ body.company-mode .reco-card:has(input:checked) {
 .wa-link b { font-size: 0.82rem; }
 .wa-link small { color: #54656f; font-size: 0.72rem; }
 .wa-link em { color: #027eb5; font-size: 0.68rem; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* La ficha del cliente usa todo el ancho disponible */
+.company-content:has(.client-layout) { max-width: none; }
+@media (min-width: 1600px) { .client-layout { grid-template-columns: 360px minmax(0, 1fr); } }
