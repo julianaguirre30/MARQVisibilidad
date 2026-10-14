@@ -590,9 +590,14 @@ function logSignal(type, projectId, label, update) {
   people = loadList(STORAGE_KEYS.people, initialPeople);
   const person = showroomPerson(); if (!person) return;
   person.signals = person.signals || [];
-  person.signals.push({ at: new Date().toISOString(), type, projectId, label });
+  const signal = { id: `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, at: new Date().toISOString(), type, projectId, label };
+  person.signals.push(signal);
   update?.(person);
   savePeople();
+  // Publicado, se manda también al servidor para que el equipo lo vea aunque el cliente esté en su celular.
+  if (/^https?:$/.test(location.protocol)) {
+    fetch('/api/signals', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...signal, personId: person.id, name: firstName(person) }) }).catch(() => {});
+  }
 }
 
 function requestVisit(projectId) {
@@ -1535,7 +1540,35 @@ window.addEventListener('storage', event => {
   } else if (event.key !== STORAGE_KEYS.webStats) return;
   if (companyMode && !document.querySelector('.update-dialog-backdrop') && !followup?.queue.length) renderCompany();
 });
-modeToggle.addEventListener('click', () => setMode(!companyMode));
+
+// Actividad de los showrooms guardada en el servidor (cuando la base está conectada en Vercel).
+let remoteSignals = /^https?:$/.test(location.protocol) && !showroomId;
+async function pullSignals() {
+  if (!remoteSignals || !companyMode || document.hidden) return;
+  const data = await fetch('/api/signals').then(res => (res.ok ? res.json() : null)).catch(() => null);
+  if (!data?.configured) { remoteSignals = false; return; }
+  const fresh = [];
+  data.signals.forEach(({ id, personId, type, projectId, label, at }) => {
+    const person = personById(personId);
+    if (!person) return;
+    person.signals ||= [];
+    if (person.signals.some(signal => signal.id === id)) return;
+    person.signals.push({ id, at, type, projectId, label });
+    if (type === 'visit') {
+      const project = projectById(projectId);
+      person.nextAction = { source: 'showroom', text: `Coordinar la visita al estudio que pidió desde su showroom${project ? ` (${project.name})` : ''}`, date: todayIso() };
+    }
+    fresh.push({ person, signal: { type, label } });
+  });
+  if (!fresh.length) return;
+  savePeople();
+  const strong = fresh.filter(item => isStrong(item.signal));
+  if (strong.length) { const { person, signal } = strong[strong.length - 1]; toast(`${firstName(person)}: ${signal.label.charAt(0).toLowerCase()}${signal.label.slice(1)}`); }
+  if (!document.querySelector('.update-dialog-backdrop') && !followup?.queue.length && !document.activeElement?.matches('#chat-input')) renderCompany();
+}
+setInterval(pullSignals, 20000);
+setTimeout(pullSignals, 1500);
+modeToggle.addEventListener('click', () => { setMode(!companyMode); pullSignals(); });
 const menuButton = document.querySelector('.menu-toggle');
 // Con el menú abierto el encabezado pasa a fondo claro sólido para que los enlaces se lean sobre cualquier sección.
 const setMenuOpen = isOpen => { document.querySelector('.main-nav').classList.toggle('mobile-open', isOpen); document.querySelector('.site-header').classList.toggle('menu-open', isOpen); menuButton.setAttribute('aria-expanded', String(isOpen)); menuButton.setAttribute('aria-label', isOpen ? 'Cerrar navegación' : 'Abrir navegación'); dispatchEvent(new Event('scroll')); };
