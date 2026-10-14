@@ -311,7 +311,6 @@ const PUBLIC_URL = 'https://marqcontigo.vercel.app/';
 const showroomUrl = person => {
   const params = new URLSearchParams({ showroom: person.id, n: firstName(person) });
   if (person.showroom?.projects?.length) params.set('p', person.showroom.projects.join(','));
-  if (person.showroom?.message) params.set('m', person.showroom.message);
   return `${location.protocol === 'file:' ? PUBLIC_URL : location.href.split(/[?#]/)[0]}?${params}`;
 };
 function relativeTime(at) {
@@ -400,7 +399,6 @@ function showroomPerson() {
     person = showroomGuest;
   }
   if (picks.length) person.showroom = { ...person.showroom, projects: picks, at: person.showroom?.at || todayIso() };
-  if (showroomParams.get('m')) person.showroom = { ...person.showroom, message: showroomParams.get('m').slice(0, 400) };
   return person;
 }
 const activeFilter = () => document.querySelector('.filter.active')?.dataset.filter || 'Todos';
@@ -479,7 +477,6 @@ const TAGLINES = {
 
 function renderProjectModal() {
   const project = projectById(projectView.id);
-  const detail = detailFor(project);
   const official = officialFor(project.id);
   const amenities = amenitiesFor(project.id);
   const brochures = brochuresFor(project.id);
@@ -487,31 +484,33 @@ function renderProjectModal() {
   // Planos, brochure y agendar visita son exclusivos del showroom personal: la landing solo presenta el proyecto.
   const inShowroom = Boolean(showroomPerson());
   const plans = inShowroom ? official?.plans || [] : [];
-  const gallery = media;
+  const brochure = inShowroom ? brochures[0] : null;
   const videos = videosFor(project);
-  const facts = (project.facts || []).filter(withoutPrice);
-  const tabs = [['resumen', 'Resumen'], ...(gallery.length > 1 || videos.length ? [['galeria', 'Galería']] : []), ...(plans.length ? [['planos', 'Planos']] : []), ...(amenities.length ? [['amenities', 'Amenities']] : []), ['novedades', 'Novedades']];
+  const tabs = [['resumen', 'Resumen'], ...(media.length > 1 || videos.length ? [['galeria', 'Galería']] : []), ...(plans.length ? [['planos', 'Planos']] : [])];
   if (!tabs.some(([key]) => key === projectView.tab)) projectView.tab = 'resumen';
   const current = media[Math.min(projectView.media || 0, media.length - 1)];
-  const idealFor = detail.profiles.map(key => PROFILES[key].tab.toLowerCase()).join(' y ').replace(/^./, c => c.toUpperCase());
   const paragraphs = (official?.paragraphs?.length ? official.paragraphs : [project.description]).filter(withoutPrice);
-  const ficha = Object.entries(official?.ficha || {}).filter(([key]) => !/ubicaci/i.test(key));
-  const visitButton = inShowroom
+  const address = official?.address || `${project.location}, Resistencia, Chaco`;
+  const mapQuery = encodeURIComponent(address);
+  const cta = inShowroom
     ? `<button class="pm-cta" type="button" data-request-visit="${esc(project.id)}">${icon('calendar')}Agendar una visita</button>`
     : `<a class="pm-cta" data-web-visit href="${esc(whatsappUrl(MARQ_WHATSAPP, `Hola, quiero más información sobre ${project.name}.`))}" target="_blank" rel="noopener">${icon('whatsapp')}Consultar por WhatsApp</a>`;
+  const brochureCard = brochure ? `<a class="pm-brochure" href="${esc(brochure.url)}" target="_blank" rel="noopener" data-brochure="${esc(project.id)}">
+      ${media[0] ? `<img src="${esc(media[0].src)}" alt="" loading="lazy">` : ''}
+      <span><small>Brochure oficial</small><b>Todo ${esc(project.name)} en un solo documento</b><em>Plantas, terminaciones y detalles · Abrir brochure ${icon('arrow-up-right')}</em></span>
+    </a>` : '';
   const thumbButton = (item, index) => `<button type="button" class="pm-thumb ${index === (projectView.media || 0) ? 'active' : ''}" data-pm-media="${index}" aria-label="Ver foto ${index + 1}"><img src="${esc(item.src)}" alt="" loading="lazy"></button>`;
   const panels = {
-    resumen: `<h4 class="pm-heading">Sobre el proyecto</h4>
-      ${paragraphs.map(text => `<p class="pm-description">${esc(text)}</p>`).join('')}
-      ${facts.length ? `<ul class="pm-facts">${facts.map(fact => `<li>${esc(fact)}</li>`).join('')}</ul>` : ''}
-      ${official?.location?.length ? `<h4 class="pm-heading">Ubicación</h4>${official.address ? `<p class="pm-address">${icon('home')}${esc(official.address)}</p>` : ''}<p class="pm-description">${esc(official.location[0])}</p>` : ''}
-      ${amenities.length ? `<h4 class="pm-heading">Amenities y servicios</h4><ul class="pm-chips">${amenities.slice(0, 6).map(item => `<li>${esc(item)}</li>`).join('')}</ul>${amenities.length > 6 ? `<button class="text-link pm-more" type="button" data-pm-tab="amenities">Ver los ${amenities.length} ${icon('arrow-right')}</button>` : ''}` : ''}
-      ${official?.source ? `<p class="pm-source">Fuente: <a href="${esc(official.source)}" target="_blank" rel="noopener">ficha oficial en estudiomarq.com.ar ${icon('arrow-up-right')}</a></p>` : ''}`,
+    resumen: `${paragraphs.map(text => `<p class="pm-description">${esc(text)}</p>`).join('')}
+      ${amenities.length ? `<ul class="pm-pills">${amenities.map(item => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}
+      ${brochureCard}
+      <h4 class="pm-heading">Ubicación</h4>
+      <p class="pm-address">${icon('home')}${esc(address)}</p>
+      <div class="pm-map"><iframe title="Mapa de ${esc(project.name)}" src="https://www.google.com/maps?q=${mapQuery}&z=15&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+      <a class="text-link pm-maps-link" href="https://www.google.com/maps/search/?api=1&query=${mapQuery}" target="_blank" rel="noopener">Abrir en Google Maps ${icon('arrow-up-right')}</a>`,
     galeria: `${videos.length ? `<h4 class="pm-heading">Videos</h4><div class="pm-videos">${videos.map((item, index) => `<button type="button" class="pm-video-card" data-pm-video="${index}">${mediaThumb(item) ? `<img src="${esc(mediaThumb(item))}" alt="" loading="lazy">` : '<span class="pm-video-blank"></span>'}<span class="pm-play">${icon('play')}</span><span class="pm-video-title">${esc(item.title || 'Video del proyecto')}</span></button>`).join('')}</div>` : ''}
-      ${gallery.length ? `<h4 class="pm-heading">Fotos y renders</h4><div class="pm-gallery">${gallery.map((item, index) => `<button type="button" class="pm-shot ${index === (projectView.media || 0) ? 'active' : ''}" data-pm-media="${index}" aria-label="Ver foto ${index + 1}"><img src="${esc(item.src)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}`,
-    planos: `<h4 class="pm-heading">Planimetría</h4><div class="pm-gallery is-plans">${plans.map(src => `<button type="button" class="pm-shot" data-pm-plan="${esc(src)}"><img src="${esc(src)}" alt="Plano de ${esc(project.name)}" loading="lazy"></button>`).join('')}</div><p class="pm-source">Tocá un plano para verlo grande.</p>`,
-    amenities: `<h4 class="pm-heading">Amenities y servicios</h4><ul class="pm-amenities">${amenities.map(item => `<li>${icon('check')}${esc(item)}</li>`).join('')}</ul>`,
-    novedades: `<h4 class="pm-heading">Novedades</h4>${project.news?.length ? project.news.map(item => `<article class="update-card"><span>${esc(formatDate(item.date))} · ${esc(item.type)}</span><h4>${esc(item.title)}</h4><p>${esc(item.body)}</p></article>`).join('') : '<p class="updates-empty">Pronto compartiremos novedades de este proyecto.</p>'}`
+      ${media.length ? `<h4 class="pm-heading">Fotos y renders</h4><div class="pm-gallery">${media.map((item, index) => `<button type="button" class="pm-shot ${index === (projectView.media || 0) ? 'active' : ''}" data-pm-media="${index}" aria-label="Ver foto ${index + 1}"><img src="${esc(item.src)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}`,
+    planos: `<div class="pm-gallery is-plans">${plans.map(src => `<button type="button" class="pm-shot" data-pm-plan="${esc(src)}"><img src="${esc(src)}" alt="Plano de ${esc(project.name)}" loading="lazy"></button>`).join('')}</div><p class="pm-source">Tocá un plano para verlo grande.</p>${brochureCard}`
   };
   modal.querySelector('.modal-scroll').innerHTML = `<div class="pm">
     <div class="pm-media">
@@ -526,24 +525,9 @@ function renderProjectModal() {
       <span class="pm-kicker">${esc(project.category)} · ${esc(project.location)}</span>
       <h2 id="modal-title">${esc(project.name)}</h2>
       ${TAGLINES[project.id] ? `<p class="pm-tagline">${esc(TAGLINES[project.id])}</p>` : ''}
+      <div class="pm-head-cta">${cta}</div>
       <div class="pm-tabs" role="tablist">${tabs.map(([key, label]) => `<button type="button" role="tab" aria-selected="${key === projectView.tab}" class="${key === projectView.tab ? 'active' : ''}" data-pm-tab="${key}">${label}</button>`).join('')}</div>
-      <div class="pm-grid">
-        <div class="pm-panel" role="tabpanel">${panels[projectView.tab]}</div>
-        <aside class="pm-card">
-          <h4>${inShowroom ? 'Conocelo en persona' : 'Datos del proyecto'}</h4>
-          <div class="pm-card-stage"><span>Etapa</span><b>${esc(STAGES[detail.stage].label)}</b></div>
-          <dl>
-            <div><dt>Estado</dt><dd>${esc(project.status)}</dd></div>
-            ${ficha.map(([key, value]) => `<div><dt>${esc(key)}</dt><dd>${esc(value === value.toUpperCase() && /[A-Z]{3}/.test(value) ? value.charAt(0) + value.slice(1).toLowerCase() : value)}</dd></div>`).join('')}
-            <div><dt>Ubicación</dt><dd>${esc(project.location)}</dd></div>
-            ${detail.profiles.length ? `<div><dt>Ideal para</dt><dd>${esc(idealFor)}</dd></div>` : ''}
-          </dl>
-          ${visitButton}
-          ${inShowroom ? brochures.map(item => `<a class="pm-cta-secondary" href="${esc(item.url)}" target="_blank" rel="noopener" data-brochure="${esc(project.id)}">${icon('arrow-up-right')}${esc(item.label.replace(/^Brochure .*/, 'Ver brochure'))}</a>`).join('') : ''}
-          <a class="pm-cta-secondary" href="#mapa" data-close-modal>${icon('grid')}Verlo en el mapa</a>
-          <p class="pm-fine">${inShowroom ? 'Te respondemos por WhatsApp y coordinamos la visita al estudio, al showroom o a la obra.' : 'Escribinos y te armamos un showroom personal con planos, brochure y la opción de agendar una visita.'}</p>
-        </aside>
-      </div>
+      <div class="pm-panel" role="tabpanel">${panels[projectView.tab]}</div>
     </div>
   </div>`;
 }
@@ -611,7 +595,7 @@ function requestVisit(projectId) {
 }
 
 /* ---------- Showroom personal ----------
-   Página privada para un cliente: sus unidades con precio y cuota, un simulador y el mensaje de su asesora.
+   Página privada para un cliente: sus unidades con precio y cuota y un simulador.
    La landing no muestra precios; el showroom sí, porque lo recibe alguien que ya consultó. */
 
 // Condiciones orientativas por proyecto: anticipo y plazos en cuotas fijas en dólares, alquiler estimado
@@ -625,7 +609,6 @@ const FINANCE = {
 };
 const financeFor = id => FINANCE[id] || FINANCE.lotes;
 const USD_ARS = 1250; // tipo de cambio de referencia para ver la cuota en pesos
-const ADVISOR = { name: 'Lucía Sosa', role: 'Tu asesora en Estudio MARQ', initials: 'LS' };
 const money = value => `USD ${Math.round(value).toLocaleString('es-AR')}`;
 const pesos = value => `$ ${Math.round(value * USD_ARS).toLocaleString('es-AR')}`;
 
@@ -658,7 +641,6 @@ function whyFor(person, unit) {
 
 const srState = { sel: null, down: {}, term: {}, cur: 'USD', sent: {} };
 const srUnits = person => (person.showroom?.projects?.length ? person.showroom.projects : person.projects).map(projectById).filter(Boolean).map(project => unitFor(person, project)).filter(Boolean);
-const srReaction = (person, projectId) => [...(person.signals || [])].reverse().find(signal => ['like', 'nope'].includes(signal.type) && signal.projectId === projectId)?.type;
 const unitTitle = unit => unit.type.typology === 'Lote' ? `Lote de ${unit.type.m2} m²` : `${unit.type.typology} · ${unit.type.m2} m²`;
 
 function simulate(unit) {
@@ -675,28 +657,17 @@ function simulate(unit) {
 
 const showMoney = value => (srState.cur === 'USD' ? money(value) : pesos(value));
 
-function defaultShowroomMessage(person) {
-  const units = srUnits(person);
-  const first = units[0];
-  if (!first) return `Hola ${firstName(person)}, te armé este espacio con lo que mejor te encaja. Cualquier duda, escribime.`;
-  const why = whyFor(person, first)[0];
-  return `${firstName(person)}, te separé ${first.type.typology === 'Lote' ? `un lote de ${first.type.m2} m²` : `un ${first.type.typology} de ${first.type.m2} m²`} en ${first.project.name}${why ? ` porque ${why.charAt(0).toLowerCase()}${why.slice(1)}` : ''}.${units[1] ? ` También sumé ${units[1].project.name} para que compares.` : ''} Simulá la cuota y, si te gusta, lo vemos en persona.`;
-}
-
 function renderShowroomBanner() {
   const person = showroomPerson(); if (!person) return;
   const view = document.querySelector('#showroom-banner');
   const units = srUnits(person);
   if (!units.some(unit => unit.project.id === srState.sel)) srState.sel = units[0]?.project.id || null;
   const investor = segmentOf(person) === 'inversor';
-  const message = person.showroom?.message || defaultShowroomMessage(person);
   const visitAsked = (person.signals || []).some(signal => signal.type === 'visit');
-  const wa = whatsappUrl(MARQ_WHATSAPP, `Hola ${ADVISOR.name.split(' ')[0]}, soy ${firstName(person)}. Estoy mirando mi showroom.`);
   const card = unit => {
     const { project, type, total } = unit;
     const sim = simulate(unit);
     const detail = detailFor(project);
-    const reaction = srReaction(person, project.id);
     const plan = (officialFor(project.id)?.plans || [])[0];
     return `<article class="sr-unit ${srState.sel === project.id ? 'on' : ''}" data-sr-sel="${esc(project.id)}">
       <button type="button" class="sr-unit-img" data-project="${esc(project.id)}" aria-label="Ver fotos de ${esc(project.name)}"><img src="${esc(photosFor(project)[0]?.src || project.image)}" alt="" loading="lazy">
@@ -706,34 +677,22 @@ function renderShowroomBanner() {
         <span class="sr-proj">${esc(project.name)} · ${esc(project.location)}</span>
         <h3>${esc(unitTitle(unit))}</h3>
         <div class="sr-why">${whyFor(person, unit).map(reason => `<span>✓ ${esc(reason)}</span>`).join('')}</div>
-        <div class="sr-money">
-          <div><small>Precio desde</small><b>${money(type.from)}</b></div>
-          <div><small>o en ${sim.term} cuotas de</small><b class="gold">${money(sim.quota)}</b></div>
-          ${plan ? `<button type="button" class="sr-plan" data-project="${esc(project.id)}" data-tab="planos" aria-label="Ver planos"><img src="${esc(plan)}" alt="" loading="lazy"></button>` : ''}
-        </div>
-        <div class="sr-react">
-          <button type="button" class="${reaction === 'like' ? 'on' : ''}" data-sr-react="like" data-id="${esc(project.id)}">♥ Me encanta</button>
-          <button type="button" data-sr-react="doubt" data-id="${esc(project.id)}">? Tengo una duda</button>
-          <button type="button" class="${reaction === 'nope' ? 'on' : ''}" data-sr-react="nope" data-id="${esc(project.id)}">✕ No es para mí</button>
-        </div>
+        ${plan ? `<button type="button" class="sr-plan-row" data-project="${esc(project.id)}" data-tab="planos"><img src="${esc(plan)}" alt="" loading="lazy"><span><b>Ver planos</b><small>Solo en tu showroom</small></span></button>` : ''}
         <button type="button" class="sr-link" data-project="${esc(project.id)}">Ver fotos, videos y planos ${icon('arrow-right')}</button>
       </div>
     </article>`;
   };
   view.hidden = false;
   view.innerHTML = `<div class="sr-top"><span class="sr-logo">marQ<small>TU SHOWROOM</small></span>
-      <span class="sr-top-actions"><a class="sr-btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">${icon('whatsapp')}Escribirle a ${esc(ADVISOR.name.split(' ')[0])}</a>${visitAsked ? '<span class="sr-btn done">✓ Visita pedida</span>' : `<button type="button" class="sr-btn gold" data-request-visit="${esc(srState.sel || '')}">${icon('calendar')}Agendar visita</button>`}</span></div>
+      </div>
     <section class="sr-hero">
       <div><span class="sr-eyebrow">Showroom de ${esc(firstName(person))}</span>
-        <h1>${esc(firstName(person))}, esto lo<br>elegimos <em>para vos.</em></h1>
+        <h1>${esc(firstName(person))}, esto lo elegimos <em>para vos.</em></h1>
         <p>${units.length ? `${units.length === 1 ? 'Una unidad' : `${units.length} unidades`} pensada${units.length === 1 ? '' : 's'} para lo que buscás. Mirá cuánto pagarías por mes${investor ? ' y cuánto te podría dejar' : ''}.` : 'Pronto vas a ver acá las unidades que elegimos para vos.'}</p></div>
-      <aside class="sr-advisor"><div class="sr-who"><span class="sr-ph">${esc(ADVISOR.initials)}</span><div><b>${esc(ADVISOR.name)}</b><small>${esc(ADVISOR.role)}</small></div></div>
-        <p>${esc(message)}</p><a class="sr-btn wa" href="${esc(wa)}" target="_blank" rel="noopener">${icon('whatsapp')}Escribirle</a></aside>
     </section>
     ${units.length ? `<section class="sr-section"><span class="sr-eyebrow">Tus unidades</span><h2>${units.length === 1 ? 'La opción que elegimos para vos' : `${units.length} opciones que encajan con lo que buscás`}</h2>
       <div class="sr-units">${units.map(card).join('')}</div></section>
     <section class="sr-section" id="sr-sim">${simulatorHtml(person, units, investor)}</section>` : ''}
-    <footer class="sr-foot"><small>Registramos qué mirás en este espacio para asesorarte mejor. Solo lo ve el equipo de MARQ.</small><a href="${esc(location.href.split(/[?#]/)[0])}">Ver todos los proyectos de MARQ ${icon('arrow-right')}</a></footer>
     ${units.length ? `<div class="sr-dock" id="sr-dock">${dockHtml(person, units, visitAsked)}</div>` : ''}`;
 }
 
@@ -760,18 +719,15 @@ function simulatorHtml(person, units, investor) {
           ${sim.rent ? `<div><small>Alquiler estimado</small><b>${showMoney(sim.rent)}/mes</b></div><div><small>Renta bruta anual</small><b>${sim.yield.toFixed(1).replace('.', ',')} %</b></div>` : ''}
           ${sim.finance.growth ? `<div><small>Valor estimado al entregar</small><b>+${sim.finance.growth} %</b></div>` : '<div><small>Renta</small><b>Desde el mes 1</b></div>'}</div></div>` : ''}
         <div class="sr-cta">${srState.sent[unit.project.id] ? '<span class="sr-btn done">✓ Propuesta pedida · te escribimos</span>' : `<button type="button" class="sr-btn gold" data-sr-proposal="${esc(unit.project.id)}">Quiero esta propuesta</button>`}</div>
-        <p class="sr-fine">Simulación orientativa en cuotas fijas. Las condiciones finales las confirma tu asesora.</p>
+        <p class="sr-fine">Simulación orientativa en cuotas fijas. Las condiciones finales las confirma el equipo de MARQ.</p>
       </div>
     </div>`;
 }
 
 function dockHtml(person, units, visitAsked) {
   const unit = units.find(item => item.project.id === srState.sel) || units[0];
-  const sim = simulate(unit);
   return `<img src="${esc(photosFor(unit.project)[0]?.src || unit.project.image)}" alt="">
-    <div class="sr-dock-t"><b>${esc(unit.project.name)} · ${esc(unitTitle(unit))}</b><small>${sim.down >= 100 ? 'Pago contado' : `${sim.down} % de anticipo · ${sim.term} meses`}</small></div>
-    <div class="sr-dock-q"><small>Cuota estimada</small><b>${sim.down >= 100 ? showMoney(sim.price) : `${showMoney(sim.quota)}/mes`}</b></div>
-    <button type="button" class="sr-btn ghost sr-dock-doubt" data-sr-react="doubt" data-id="${esc(unit.project.id)}">? Tengo una duda</button>
+    <div class="sr-dock-t"><b>${esc(unit.project.name)}</b><small>${esc(unitTitle(unit))}</small></div>
     ${visitAsked ? '<span class="sr-btn done">✓ Visita pedida</span>' : `<button type="button" class="sr-btn gold" data-request-visit="${esc(unit.project.id)}">${icon('calendar')}Agendar visita</button>`}`;
 }
 
@@ -791,11 +747,6 @@ function refreshSimulator() {
   set('end', sim.down >= 100 ? '—' : esc(new Intl.DateTimeFormat('es-AR', { month: 'short', year: 'numeric' }).format(sim.end)));
   const term = document.querySelector('#sr-term'); if (term) term.disabled = sim.down >= 100;
   const dock = document.querySelector('#sr-dock'); if (dock) dock.innerHTML = dockHtml(person, units, (person.signals || []).some(signal => signal.type === 'visit'));
-  document.querySelectorAll('.sr-unit').forEach(node => {
-    if (node.dataset.srSel !== unit.project.id) return;
-    const quota = node.querySelectorAll('.sr-money b')[1]; if (quota) quota.textContent = money(sim.quota);
-    const label = node.querySelectorAll('.sr-money small')[1]; if (label) label.textContent = `o en ${sim.term} cuotas de`;
-  });
 }
 
 document.addEventListener('input', event => {
@@ -819,23 +770,10 @@ document.addEventListener('change', event => {
 
 document.addEventListener('click', event => {
   if (!showroomId) return;
-  const target = event.target.closest('[data-sr-sel],[data-sr-react],[data-sr-cur],[data-sr-proposal]');
+  const target = event.target.closest('[data-sr-sel],[data-sr-cur],[data-sr-proposal]');
   if (!target || (target.matches('[data-sr-sel]') && event.target.closest('[data-project]'))) return;
   const person = showroomPerson(); if (!person) return;
   const d = target.dataset;
-  if (d.srReact) {
-    const project = projectById(d.id);
-    if (d.srReact === 'doubt') {
-      const question = prompt(`¿Qué te gustaría saber sobre ${project.name}?`);
-      if (!question?.trim()) return;
-      logSignal('doubt', project.id, `Preguntó por ${project.name}: «${question.trim().slice(0, 110)}»`);
-      toast('Le llegó tu pregunta a tu asesora. Te responde por WhatsApp.');
-      return;
-    }
-    logSignal(d.srReact, project.id, d.srReact === 'like' ? `Le encantó ${project.name}` : `Marcó ${project.name} como «No es para mí»`);
-    renderShowroomBanner();
-    return;
-  }
   if (d.srCur) { srState.cur = d.srCur; renderShowroomBanner(); return; }
   if (d.srProposal) {
     const unit = srUnits(person).find(item => item.project.id === d.srProposal); if (!unit) return;
@@ -845,7 +783,7 @@ document.addEventListener('click', event => {
       who.nextAction = { source: 'showroom', text: `Enviar la propuesta que pidió: ${unit.project.name}, ${sim.down} % de anticipo${sim.down >= 100 ? '' : ` y ${sim.term} cuotas`}`, date: todayIso() };
     });
     srState.sent[unit.project.id] = true;
-    toast('¡Listo! Tu asesora te manda la propuesta por WhatsApp.');
+    toast('¡Listo! Te mandamos la propuesta por WhatsApp.');
     renderShowroomBanner();
     return;
   }
@@ -1379,10 +1317,7 @@ function openShowroomDialog(person) {
     fields: `<div class="reco-tools"><button type="button" class="admin-link" data-reco-all>Seleccionar todos</button></div>
       <h3 class="reco-group">Recomendados para ${esc(firstName(person))}</h3>
       <div class="reco-list">${recommendations.map((item, index) => card(item, current ? current.includes(item.project.id) : index < 3)).join('')}</div>
-      ${others.length ? `<h3 class="reco-group">Otros proyectos</h3><div class="reco-list">${others.map(item => card(item, current?.includes(item.project.id))).join('')}</div>` : ''}
-      <h3 class="reco-group">Mensaje para ${esc(firstName(person))}</h3>
-      <textarea name="message" rows="3" maxlength="400" placeholder="Si lo dejás vacío, armamos uno con las unidades elegidas.">${esc(person.showroom?.message || '')}</textarea>
-      <p class="reco-hint">Aparece arriba de su showroom, firmado por su asesora.</p>`,
+      ${others.length ? `<h3 class="reco-group">Otros proyectos</h3><div class="reco-list">${others.map(item => card(item, current?.includes(item.project.id))).join('')}</div>` : ''}`,
     onOpen: form => form.querySelector('[data-reco-all]').addEventListener('click', event => {
       const boxes = [...form.querySelectorAll('input[name="picks"]')];
       const all = boxes.every(box => box.checked);
@@ -1392,7 +1327,7 @@ function openShowroomDialog(person) {
     submitLabel: current ? 'Guardar showroom' : 'Generar showroom',
     onSubmit: form => {
       const picks = form.getAll('picks');
-      person.showroom = { projects: picks, at: todayIso(), message: String(form.get('message') || '').trim() || undefined };
+      person.showroom = { projects: picks, at: todayIso() };
       person.history.push({ date: todayIso(), channel: 'Showroom', note: `Se ${current ? 'actualizó' : 'generó'} su showroom${picks.length ? ` con ${listJoin(picks.map(id => projectById(id)?.name).filter(Boolean))}` : ''}.` });
       person.history.sort((a, b) => a.date.localeCompare(b.date));
       toast(current ? 'Showroom actualizado' : 'Showroom generado: ya podés enviarlo');
