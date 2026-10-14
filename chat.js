@@ -7,7 +7,9 @@
    sugerencias las generaría un modelo de lenguaje con los datos de la ficha.
    ========================================================================== */
 
-const CHANNEL_LABEL = { whatsapp: 'WhatsApp', instagram: 'Instagram' };
+const CHANNEL_LABEL = { whatsapp: 'WhatsApp', instagram: 'Instagram', messenger: 'Messenger' };
+// Con número se habla solo por WhatsApp; sin número, por Instagram o Messenger (Meta).
+const channelsFor = person => (person.phone ? ['whatsapp'] : ['instagram', 'messenger']);
 const chatAt = (daysAgo, time) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); const [h, m] = time.split(':').map(Number); d.setHours(h, m, 0, 0); return d.toISOString(); };
 const chatHoursAgo = hours => new Date(Date.now() - hours * 3600000).toISOString();
 let chatSeq = 0;
@@ -68,16 +70,15 @@ initialPeople.forEach(person => { person.chat = structuredClone(CHAT_SEED[person
 people.forEach(person => { if (!person.chat) person.chat = structuredClone(CHAT_SEED[person.id] || { whatsapp: [], instagram: [] }); });
 
 // Estado de la interfaz (no se guarda).
-const chatUi = { channel: {}, tab: {}, draft: {}, menu: false, picker: null, assist: null, template: {}, typing: {} };
+const chatUi = { channel: {}, tab: {}, draft: {}, menu: false, picker: null, assist: null, typing: {} };
 
 /* ---------- Utilidades ---------- */
 
 const chatMessages = (person, channel) => person.chat?.[channel] || [];
+const chatList = (person, channel) => { person.chat ||= {}; return (person.chat[channel] ||= []); };
 const lastClientMessage = (person, channel) => [...chatMessages(person, channel)].reverse().find(item => item.from === 'client');
-const windowOpen = (person, channel) => { const last = lastClientMessage(person, channel); return Boolean(last) && hoursSince(last.at) < 24; };
-const windowLeft = (person, channel) => Math.max(0, Math.ceil(24 - hoursSince(lastClientMessage(person, channel).at)));
 const unanswered = (person, channel) => { const list = chatMessages(person, channel); let count = 0; for (let i = list.length - 1; i >= 0 && list[i].from === 'client'; i--) count++; return count; };
-const preferredChannel = person => chatUi.channel[person.id] || (chatMessages(person, 'whatsapp').length || !chatMessages(person, 'instagram').length ? 'whatsapp' : 'instagram');
+const preferredChannel = person => { const list = channelsFor(person); return list.includes(chatUi.channel[person.id]) ? chatUi.channel[person.id] : list.find(key => chatMessages(person, key).length) || list[0]; };
 const clock = iso => new Date(iso).toTimeString().slice(0, 5);
 function dayLabel(iso) {
   const date = isoDate(new Date(iso));
@@ -159,18 +160,24 @@ function chatBrief(person) {
   else if (person.nextAction) lines.push(['➜', `Próximo paso: ${esc(person.nextAction.text)} (${esc(relativeDay(person.nextAction.date).toLowerCase())}).`]);
   if (signal) lines.push(['◎', `En su showroom: ${esc(signal.label.charAt(0).toLowerCase() + signal.label.slice(1))} (${esc(relativeTime(signal.at).toLowerCase())}).`]);
   if (project && (photos || plans || videos)) lines.push(['◆', `Material listo de ${esc(project.name)}: ${[photos && `${photos} fotos`, plans && `${plans} planos`, videos && `${videos} videos`].filter(Boolean).join(', ')}.`]);
+  // Sin IA: un resumen armado con reglas, de todo lo hablado y con foco en lo último.
+  const list = chatMessages(person, channel);
+  const sentAtt = list.filter(item => item.from === 'studio' && item.att).map(item => item.att.name).filter(Boolean);
   let hint;
-  if (channel === 'whatsapp' && !windowOpen(person, channel)) hint = `Pasaron más de 24 h desde su último mensaje: retomá con una plantilla de ${project ? `novedades de ${project.name}` : 'seguimiento'}.`;
-  else if (pending && last && isAck(last.text)) hint = meeting ? 'La conversación está al día. Antes de la reunión, mandale la ubicación como recordatorio.' : 'La conversación está al día. Buen momento para proponer una visita.';
-  else if (pending) hint = `Respondé su último mensaje. ${chatSuggestions(person, channel)[0]}`;
-  else if (meeting) hint = 'Confirmale la reunión y mandale la ubicación para que llegue sin problemas.';
-  else hint = `Proponé una visita${project ? ` a ${project.name}` : ''} para avanzar.`;
-  return `<section class="ai-brief">
-    <h3>${icon('sparkles')}Antes de escribir <small>IA · simulada</small></h3>
-    <p>${esc(first)} ${what}${projects.length ? ` y le interesa${projects.length > 1 ? 'n' : ''} <b>${esc(listJoin(projects.map(item => item.name)))}</b>` : ''}.</p>
-    <ul>${lines.map(([mark, text]) => `<li><span>${mark}</span><span>${text}</span></li>`).join('')}</ul>
-    <div class="ai-hint"><span>Sugerencia</span>${esc(hint)}</div>
-  </section>`;
+  if (!list.length) hint = `Todavía no hay conversación con ${first} por ${CHANNEL_LABEL[channel]}.`;
+  else {
+    const since = dayLabel(list[0].at);
+    hint = `Hablan desde ${/^\d/.test(since) ? `el ${since}` : since.toLowerCase()} (${plural(list.length, 'mensaje', 'mensajes')})${sentAtt.length ? `; se le mandó ${listJoin(sentAtt.slice(-3))}` : ''}. `;
+    hint += last ? `Lo último que escribió ${first} (${relativeTime(last.at).toLowerCase()}): «${last.text.length > 110 ? `${last.text.slice(0, 110)}…` : last.text}».` : '';
+    hint += pending && !isAck(last.text) ? ' Todavía no se le respondió.' : ' La conversación está al día.';
+  }
+  const real = aiBrief(person, channel);
+  if (real) hint = real;
+  return `<div class="ai-brief">
+    <span class="ai-brief-label">${icon('sparkles')}Resumen de la conversación <small>${groqKey() ? (real ? 'IA' : 'pensando…') : 'IA · simulada'}</small></span>
+    <p>${esc(hint)}</p>
+    ${aiConnectBox()}
+  </div>`;
 }
 
 // "Mejorar redacción": ordena lo que escribió la persona sin cambiar lo que quiso decir.
@@ -196,21 +203,11 @@ function improveText(text, tone, person) {
   return `¡Hola ${first}! ${out}`;
 }
 
-function templatesFor(person) {
-  const first = firstName(person);
-  const project = mainProject(person);
-  const meeting = isMeeting(person.nextAction) ? person.nextAction : null;
-  return [
-    ['Seguimiento', `Hola ${first}, ¿cómo estás? Te escribimos de Estudio MARQ para retomar tu consulta${project ? ` por ${project.name}` : ''}. ¿Te parece si lo charlamos?`],
-    project && ['Novedad del proyecto', `Hola ${first}, hay novedades de ${project.name} que pueden interesarte. ¿Querés que te cuente?`],
-    meeting && ['Recordatorio de visita', `Hola ${first}, te recordamos tu visita ${relativeDay(meeting.date).toLowerCase()} a las ${meeting.time} h en ${MEETING_PLACES[meeting.place] || meeting.place}. ¡Te esperamos!`]
-  ].filter(Boolean);
-}
-
 /* ---------- Render ---------- */
 
 function attachmentHtml(att) {
   if (!att) return '';
+  if (att.kind === 'showroom') return `<a class="wa-link" href="${esc(att.url)}" target="_blank" rel="noopener">${att.src ? `<img src="${esc(att.src)}" alt="" loading="lazy">` : ''}<span><b>${esc(att.name)} · Estudio MARQ</b><small>${esc(plural(att.count || 0, 'proyecto', 'proyectos'))} · planos, brochure y agendar visita</small><em>${esc(att.url.replace(/^https?:\/\//, ''))}</em></span></a>`;
   const tag = att.kind === 'project' ? `<span class="wa-studio-tag">${icon('sparkles')}Del proyecto${att.project ? ` · ${esc(att.project)}` : ''}</span>` : '';
   if (att.type === 'video') return `${tag}<button type="button" class="wa-video" data-chat-video="${esc(att.videoId)}" data-chat-vkind="${esc(att.vkind)}" data-chat-vtitle="${esc(att.name)}"><img src="${esc(att.src)}" alt=""><span>${icon('play')}</span></button><div class="wa-file small"><b>${esc(att.name)}</b><small>Video · ${esc(att.project || '')}</small></div>`;
   if (att.kind === 'doc' || att.type === 'brochure') {
@@ -226,9 +223,6 @@ function chatPanel(person) {
   const channel = preferredChannel(person);
   const tab = chatUi.tab[person.id] || 'chat';
   const list = chatMessages(person, channel);
-  const open = windowOpen(person, channel);
-  const template = chatUi.template[person.id];
-  const needsTemplate = channel === 'whatsapp' && !open;
   const draft = chatUi.draft[person.id] || '';
   let lastDay = '';
   const wall = list.map(item => {
@@ -237,26 +231,22 @@ function chatPanel(person) {
     lastDay = day;
     return `${sep}<div class="wa-msg ${item.from === 'studio' ? 'out' : 'in'} ${item.att ? 'has-att' : ''}">${attachmentHtml(item.att)}${item.text ? `<p>${esc(item.text)}</p>` : ''}<span class="wa-time">${clock(item.at)}${item.from === 'studio' ? ticks(item.status) : ''}</span></div>`;
   }).join('');
-  const tabs = ['whatsapp', 'instagram'].map(key => {
+  const tabs = channelsFor(person).map(key => {
     const count = unanswered(person, key);
-    return `<button type="button" class="chat-tab ${tab === 'chat' && channel === key ? 'on' : ''}" data-chat-channel="${key}"><i class="chat-dot is-${key}">${key === 'whatsapp' ? icon('whatsapp') : '◎'}</i>${CHANNEL_LABEL[key]}${count ? `<em>${count}</em>` : ''}</button>`;
+    return `<button type="button" class="chat-tab ${tab === 'chat' && channel === key ? 'on' : ''}" data-chat-channel="${key}"><i class="chat-dot is-${key}">${key === 'whatsapp' ? icon('whatsapp') : key === 'messenger' ? 'm' : '◎'}</i>${CHANNEL_LABEL[key]}${count ? `<em>${count}</em>` : ''}</button>`;
   }).join('');
-  const windowNote = channel === 'whatsapp'
-    ? open ? `<span class="chat-window ok">Ventana de 24 h abierta · quedan ${windowLeft(person, channel)} h</span>` : '<span class="chat-window">Ventana cerrada · solo plantillas</span>'
-    : '<span class="chat-window ok">Instagram · mensajes directos</span>';
-  const suggestions = needsTemplate ? [] : chatSuggestions(person, channel);
+  const windowNote = channel === 'whatsapp' ? '' : '<span class="chat-window ok">Sin número de teléfono</span>';
+  const suggestions = (aiSuggestions(person, channel) || chatSuggestions(person, channel));
   const body = tab === 'actividad'
     ? `<div class="chat-activity">${activityPanel(person)}</div>`
-    : `<div class="chat-head" data-chat-profile title="Ver la ficha">${avatar(person.name)}<div><b>${esc(person.name)}</b><small>${chatUi.typing[person.id] ? 'escribiendo…' : list.length ? `${channel === 'whatsapp' ? `+${esc(person.phone)}` : '@' + esc(person.name.toLowerCase().replace(/\s+/g, '.'))} · últ. vez ${esc(relativeTime((lastClientMessage(person, channel) || list[list.length - 1]).at).toLowerCase())}` : 'Sin mensajes todavía'}</small></div><span class="chat-head-more">Ver ficha ↓</span></div>
-      <div class="wa-wall" id="wa-wall">${list.length ? wall : `<div class="wa-empty">${icon(channel === 'whatsapp' ? 'whatsapp' : 'sparkles')}<b>Todavía no hay conversación por ${CHANNEL_LABEL[channel]}</b><span>${needsTemplate ? 'Para iniciarla, WhatsApp pide usar una plantilla aprobada.' : 'Escribile para empezar.'}</span></div>`}${chatUi.typing[person.id] ? '<div class="wa-msg in typing"><span></span><span></span><span></span></div>' : ''}</div>
-      ${needsTemplate ? `<div class="chat-templates"><p>${list.length ? 'Pasaron más de 24 h desde su último mensaje.' : 'Para escribir primero'}, WhatsApp solo permite <b>plantillas aprobadas</b>. Elegí una:</p><div>${templatesFor(person).map(([label, text], index) => `<button type="button" class="${template === text ? 'on' : ''}" data-chat-template="${index}">${esc(label)}</button>`).join('')}</div></div>` : ''}
-      ${suggestions.length ? `<div class="chat-sugs"><span class="chat-sugs-lead">${icon('sparkles')}Sugerencias</span>${suggestions.map((text, index) => `<button type="button" class="chat-sug" data-chat-sug="${index}">${esc(text)}</button>`).join('')}</div>` : ''}
+    : `<div class="wa-wall" id="wa-wall">${list.length ? wall : `<div class="wa-empty">${icon(channel === 'whatsapp' ? 'whatsapp' : 'sparkles')}<b>Todavía no hay conversación por ${CHANNEL_LABEL[channel]}</b><span>Escribile para empezar.</span></div>`}${chatUi.typing[person.id] ? '<div class="wa-msg in typing"><span></span><span></span><span></span></div>' : ''}</div>
+      ${suggestions.length ? `<div class="chat-sugs"><span class="chat-sugs-lead">${icon('sparkles')}Sugerencias</span>${suggestions.map((text, index) => `<button type="button" class="chat-sug" data-chat-sug="${index}" data-text="${esc(text)}">${esc(text)}</button>`).join('')}</div>` : ''}
       ${chatUi.assist ? assistPanel(person) : ''}
       <div class="chat-composer">
-        <button type="button" class="chat-btn ${chatUi.menu ? 'on' : ''}" data-chat-menu aria-label="Adjuntar" ${needsTemplate ? 'disabled' : ''}>${icon('paperclip')}</button>
+        <button type="button" class="chat-btn ${chatUi.menu ? 'on' : ''}" data-chat-menu aria-label="Adjuntar">${icon('paperclip')}</button>
         ${chatUi.menu ? clipMenu(channel) : ''}
-        <textarea id="chat-input" rows="1" placeholder="${needsTemplate ? 'Elegí una plantilla para escribir' : 'Escribí un mensaje'}" ${needsTemplate ? 'readonly' : ''}>${esc(needsTemplate ? (template || '') : draft)}</textarea>
-        <button type="button" class="chat-btn ai ${chatUi.assist ? 'on' : ''}" data-chat-assist aria-label="Mejorar redacción" ${needsTemplate ? 'disabled' : ''}>${icon('sparkles')}</button>
+        <textarea id="chat-input" rows="1" placeholder="Escribí un mensaje">${esc(draft)}</textarea>
+        <button type="button" class="chat-btn ai ${chatUi.assist ? 'on' : ''}" data-chat-assist aria-label="Mejorar redacción">${icon('sparkles')}</button>
         <button type="button" class="chat-btn send" data-chat-send aria-label="Enviar">${icon('send')}</button>
       </div>
       ${chatUi.picker ? projectPicker(person) : ''}`;
@@ -270,7 +260,7 @@ function chatPanel(person) {
 
 const clipMenu = channel => `<div class="chat-clip">
   <button type="button" data-chat-attach="image"><i style="background:#007bfc">${icon('image')}</i><span>Foto o imagen<small>Desde la computadora</small></span></button>
-  ${channel === 'whatsapp' ? `<button type="button" data-chat-attach="doc"><i style="background:#7f66ff">${icon('file')}</i><span>Documento<small>PDF, planos, presupuestos</small></span></button>` : ''}
+  ${channel !== 'instagram' ? `<button type="button" data-chat-attach="doc"><i style="background:#7f66ff">${icon('file')}</i><span>Documento<small>PDF, planos, presupuestos</small></span></button>` : ''}
   <button type="button" data-chat-attach="project"><i style="background:#b88642">${icon('sparkles')}</i><span>Del proyecto<small>Renders, planos${channel === 'whatsapp' ? ', videos y brochures' : ' y videos'}</small></span></button>
   <p>Sin GIF, stickers ni encuestas${channel === 'instagram' ? ' · Instagram no admite documentos' : ''}</p>
 </div>`;
@@ -303,19 +293,113 @@ function projectPicker(person) {
 }
 const projects_forSale = () => projects.filter(project => detailFor(project).forSale);
 
+const improvedDraft = (person, draft, tone) => (groqKey() && aiImprove(person, draft, tone)) || improveText(draft, tone, person);
+
 function assistPanel(person) {
   const draft = (chatUi.draft[person.id] || '').trim();
   const tone = chatUi.assist.tone || 'cordial';
   return `<div class="chat-assist">
     <div class="chat-assist-head"><b>${icon('sparkles')}Mejorar redacción</b><button type="button" class="dialog-close" data-chat-assist aria-label="Cerrar">${icon('x')}</button></div>
     ${draft ? `<span class="chat-assist-label">Lo que escribiste</span><p class="chat-assist-before">${esc(draft)}</p>
-      <span class="chat-assist-label">Sugerencia</span><p class="chat-assist-after">${esc(improveText(draft, tone, person))}</p>
+      <span class="chat-assist-label">Sugerencia</span><p class="chat-assist-after">${esc(improvedDraft(person, draft, tone))}</p>
       <div class="chat-assist-tones">${[['cordial', 'Cordial'], ['formal', 'Más formal'], ['corto', 'Más corto']].map(([key, label]) => `<button type="button" class="${key === tone ? 'on' : ''}" data-chat-tone="${key}">${label}</button>`).join('')}</div>
       <div class="chat-assist-actions"><button type="button" class="admin-primary admin-small" data-chat-use>Usar este texto</button><button type="button" class="admin-secondary admin-small" data-chat-assist>Dejar el mío</button></div>`
       : '<p class="chat-assist-empty">Escribí el mensaje como te salga y te propongo una versión prolija, sin cambiar lo que querés decir.</p>'}
     <small>La IA nunca envía sola. No inventa precios ni fechas.</small>
   </div>`;
 }
+
+/* ---------- IA real con Groq (opcional) ----------
+   Si la persona pega su clave de Groq, el cliente responde, las sugerencias, el resumen y
+   "Mejorar redacción" salen del modelo. Sin clave o si falla la red, quedan las reglas de arriba.
+   La clave se guarda solo en este navegador: nunca va al repositorio. */
+
+const GROQ_MODEL = 'openai/gpt-oss-120b';
+const GROQ_STORE = 'marq-groq-key';
+const groqKey = () => { try { return localStorage.getItem(GROQ_STORE) || window.GROQ_KEY || ''; } catch { return window.GROQ_KEY || ''; } };
+const aiCache = { sugs: {}, brief: {}, improve: {}, pending: new Set() };
+const AI_RULES = 'Reglas: español rioplatense con voseo siempre (avisame, querés, podés; nunca avísame ni quieres), mensajes cortos como de WhatsApp, sin emojis de más. Nunca inventes precios, cuotas, valores, financiación ni fechas que no estén en los datos; si piden precio, se ofrece enviar una propuesta con valores actualizados.';
+
+async function groq(messages, { json = false, temperature = 0.7 } = {}) {
+  const key = groqKey();
+  if (!key) throw new Error('sin clave');
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature, max_tokens: 1200, reasoning_effort: 'low', ...(json ? { response_format: { type: 'json_object' } } : {}) }),
+  });
+  if (!res.ok) { if (res.status === 401) toast('La clave de Groq no es válida'); throw new Error(`Groq ${res.status}`); }
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content?.trim() || '';
+  return json ? JSON.parse(text) : text;
+}
+
+function personContext(person) {
+  return JSON.stringify({
+    nombre: person.name, tipo: segmentOf(person), perfil: person.profile, etapa: person.stage,
+    proyectos: interestedProjects(person).map(project => project.name),
+    proximoPaso: person.nextAction, notas: person.notes,
+    historial: (person.history || []).slice(-6),
+  });
+}
+
+const describeAtt = att => !att ? '' : att.kind === 'showroom' ? `[link a su showroom personal con ${att.count} proyectos, planos, brochure y botón para agendar visita] ` : `[adjunto: ${att.type === 'video' ? 'video' : att.type === 'plan' ? 'plano' : att.kind === 'doc' ? 'documento' : 'foto'} «${att.name || ''}»${att.project ? ` de ${att.project}` : ''}] `;
+const transcript = (person, channel, max = 20) => chatMessages(person, channel).slice(-max).map(item => `${item.from === 'client' ? 'Cliente' : 'Estudio'}: ${describeAtt(item.att)}${item.text}`).join('\n');
+const chatSig = (person, channel) => `${channel}:${chatMessages(person, channel).slice(-1)[0]?.id || 'vacío'}`;
+
+// Pide algo al modelo una sola vez por estado de la conversación y vuelve a dibujar al llegar.
+function aiFetch(bucket, id, sig, task) {
+  const tag = `${bucket}|${id}|${sig}`;
+  if (!groqKey() || aiCache.pending.has(tag) || aiCache[bucket][id]?.sig === sig) return;
+  aiCache.pending.add(tag);
+  task().then(value => {
+    aiCache[bucket][id] = { sig, value };
+    if (currentChatPerson()?.id === id.split('|')[0]) renderChat({ keepScroll: true, focus: document.activeElement?.id === 'chat-input' });
+  }).catch(() => {}).finally(() => aiCache.pending.delete(tag));
+}
+const aiValue = (bucket, id, sig) => (aiCache[bucket][id]?.sig === sig ? aiCache[bucket][id].value : null);
+
+function aiSuggestions(person, channel) {
+  const sig = chatSig(person, channel);
+  aiFetch('sugs', person.id, sig, async () => {
+    const out = await groq([
+      { role: 'system', content: `Sos asistente del equipo comercial de Estudio MARQ, una desarrolladora inmobiliaria de Resistencia, Chaco. Proponé 3 respuestas distintas que el equipo podría mandarle al cliente por ${CHANNEL_LABEL[channel]}, cada una de 1 o 2 oraciones. ${AI_RULES} Respondé en JSON: {"sugerencias": ["...", "...", "..."]}` },
+      { role: 'user', content: `Datos del cliente: ${personContext(person)}\n\nConversación:\n${transcript(person, channel) || '(todavía no hay mensajes)'}` },
+    ], { json: true });
+    return (out.sugerencias || []).filter(Boolean).slice(0, 3);
+  });
+  return aiValue('sugs', person.id, sig);
+}
+
+function aiBrief(person, channel) {
+  const sig = `${chatSig(person, channel)}:${person.history?.length || 0}`;
+  aiFetch('brief', person.id, sig, () => groq([
+    { role: 'system', content: `Sos asistente del equipo comercial de Estudio MARQ. Resumí TODA la conversación para alguien del equipo que la retoma, en 2 o 3 oraciones y en tercera persona: de qué se habló y qué se le mandó, y poné el énfasis en lo último (qué dijo o pidió el cliente al final y si quedó algo sin responder). No escribas un mensaje para el cliente, no saludes y no des órdenes. No inventes nada que no esté en la conversación.` },
+    { role: 'user', content: `Cliente: ${person.name}\n\nConversación completa por ${CHANNEL_LABEL[channel]}:\n${transcript(person, channel, 200) || '(sin mensajes)'}` },
+  ], { temperature: 0.4 }));
+  return aiValue('brief', person.id, sig);
+}
+
+const TONE_HINT = { cordial: 'cordial y cercano', formal: 'más formal y profesional (sin dejar el voseo)', corto: 'lo más breve posible, una sola oración' };
+function aiImprove(person, draft, tone) {
+  const id = `${person.id}|${tone}`;
+  aiFetch('improve', id, draft, () => groq([
+    { role: 'system', content: `Reescribí el mensaje que un vendedor de Estudio MARQ le quiere mandar al cliente ${firstName(person)}. Corregí ortografía y abreviaturas, tono ${TONE_HINT[tone]}. No agregues información nueva ni cambies lo que quiso decir. ${AI_RULES} Devolvé solo el mensaje final, sin comillas.` },
+    { role: 'user', content: draft },
+  ], { temperature: 0.3 }));
+  return aiValue('improve', id, draft);
+}
+
+async function aiClientReply(person, channel) {
+  return groq([
+    { role: 'system', content: `Interpretás a ${person.name}, un cliente real de Estudio MARQ (desarrolladora inmobiliaria de Resistencia, Chaco) que chatea por ${CHANNEL_LABEL[channel]}. Tu perfil: ${personContext(person)}. Respondé SOLO como el cliente al último mensaje del estudio, en 1 a 3 oraciones cortas, natural, como alguien escribiendo en el celular. Podés hacer preguntas, pedir fotos, planos o una visita, o agradecer. No hables como asistente ni menciones que sos una IA.` },
+    { role: 'user', content: `Conversación hasta ahora:\n${transcript(person, channel)}\n\nEscribí la próxima respuesta del cliente.` },
+  ], { temperature: 0.9 });
+}
+
+const aiConnectBox = () => groqKey()
+  ? ''
+  : `<form class="ai-connect" data-ai-form><span>Conectá Groq para que la IA sea real</span><div><input type="password" name="key" placeholder="Pegá tu clave gsk_…" autocomplete="off"><button type="submit">Conectar</button></div><small>Se guarda solo en este navegador. Creala en console.groq.com/keys.</small></form>`;
 
 /* ---------- Acciones ---------- */
 
@@ -345,7 +429,7 @@ function logChat(person, channel, note) {
 function sendMessage(person, { text = '', att = null } = {}) {
   const channel = preferredChannel(person);
   const item = { id: chatId(), from: 'studio', at: new Date().toISOString(), text: text.trim(), att, status: 'sent' };
-  person.chat[channel].push(item);
+  chatList(person, channel).push(item);
   logChat(person, channel, att ? `Envió ${att.name}${att.project ? ` (${att.project})` : ''} por ${CHANNEL_LABEL[channel]}.` : `Mensaje por ${CHANNEL_LABEL[channel]}: “${item.text.length > 80 ? `${item.text.slice(0, 80)}…` : item.text}”`);
   savePeople();
   setTimeout(() => { item.status = 'delivered'; savePeople(); if (currentChatPerson()?.id === person.id) renderChat({ keepScroll: true, focus: false }); }, 900);
@@ -360,24 +444,25 @@ function simulateReply(person, channel, sent) {
     : sent.some(item => item.att) ? '¡Gracias! Me encantan.'
     : /\?\s*$/.test(sent[sent.length - 1].text) ? 'Sí, dale. Me viene bien.'
     : 'Perfecto, ¡muchas gracias!';
-  setTimeout(() => { chatUi.typing[person.id] = true; if (currentChatPerson()?.id === person.id) renderChat({ keepScroll: false, focus: false }); }, 3200);
-  setTimeout(() => {
+  const reply = groqKey() ? aiClientReply(person, channel).catch(() => answers) : Promise.resolve(answers);
+  const typingAt = new Promise(done => setTimeout(done, 3200));
+  typingAt.then(() => { chatUi.typing[person.id] = true; if (currentChatPerson()?.id === person.id) renderChat({ keepScroll: false, focus: false }); });
+  Promise.all([reply, typingAt.then(() => new Promise(done => setTimeout(done, 2000)))]).then(([text]) => {
     chatUi.typing[person.id] = false;
-    person.chat[channel].push({ id: chatId(), from: 'client', at: new Date().toISOString(), text: answers });
+    chatList(person, channel).push({ id: chatId(), from: 'client', at: new Date().toISOString(), text: text || answers });
     savePeople();
     if (currentChatPerson()?.id === person.id) renderChat({ focus: false });
-  }, 5600);
+  });
 }
 
 function sendDraft(person) {
   const channel = preferredChannel(person);
-  const needsTemplate = channel === 'whatsapp' && !windowOpen(person, channel);
-  const text = needsTemplate ? chatUi.template[person.id] : (chatUi.draft[person.id] || '').trim();
-  if (!text) { toast(needsTemplate ? 'Elegí una plantilla para escribir' : 'Escribí un mensaje'); return; }
+  const text = (chatUi.draft[person.id] || '').trim();
+  if (!text) { toast('Escribí un mensaje'); return; }
   const item = sendMessage(person, { text });
-  chatUi.draft[person.id] = ''; chatUi.template[person.id] = null; chatUi.assist = null;
+  chatUi.draft[person.id] = ''; chatUi.assist = null;
   renderChat();
-  if (!needsTemplate || channel === 'whatsapp') simulateReply(person, channel, [item]);
+  simulateReply(person, channel, [item]);
 }
 
 // Las imágenes se achican antes de guardarlas para no llenar el almacenamiento del navegador.
@@ -401,12 +486,12 @@ function shrinkImage(file) {
 }
 
 companyView.addEventListener('click', event => {
-  const target = event.target.closest('[data-chat-channel],[data-chat-activity],[data-chat-menu],[data-chat-attach],[data-chat-assist],[data-chat-tone],[data-chat-use],[data-chat-sug],[data-chat-send],[data-chat-template],[data-chat-picker-close],[data-chat-pproject],[data-chat-ptype],[data-chat-pitem],[data-chat-psend],[data-chat-zoom],[data-chat-video],[data-chat-profile],[data-chat-focus]');
+  const target = event.target.closest('[data-chat-channel],[data-chat-activity],[data-chat-menu],[data-chat-attach],[data-chat-assist],[data-chat-tone],[data-chat-use],[data-chat-sug],[data-chat-send],[data-chat-picker-close],[data-chat-pproject],[data-chat-ptype],[data-chat-pitem],[data-chat-psend],[data-chat-zoom],[data-chat-video],[data-chat-profile],[data-chat-focus]');
   if (!target) return;
   const person = currentChatPerson() || personById(target.dataset.chatFocus);
   if (!person) return;
   const d = target.dataset;
-  if (d.chatFocus !== undefined) { chatUi.tab[person.id] = 'chat'; chatUi.channel[person.id] = 'whatsapp'; renderChat(); companyView.querySelector('#chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (d.chatFocus !== undefined) { chatUi.tab[person.id] = 'chat'; renderChat(); companyView.querySelector('#chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   if (d.chatChannel) { chatUi.channel[person.id] = d.chatChannel; chatUi.tab[person.id] = 'chat'; chatUi.menu = false; chatUi.picker = null; renderChat(); }
   else if (d.chatActivity !== undefined) { chatUi.tab[person.id] = 'actividad'; chatUi.menu = false; renderChat({ focus: false }); }
   else if (d.chatMenu !== undefined) { chatUi.menu = !chatUi.menu; chatUi.assist = null; renderChat({ keepScroll: true, focus: false }); }
@@ -417,9 +502,8 @@ companyView.addEventListener('click', event => {
   }
   else if (d.chatAssist !== undefined) { chatUi.assist = chatUi.assist ? null : { tone: 'cordial' }; chatUi.menu = false; renderChat({ keepScroll: true }); }
   else if (d.chatTone) { chatUi.assist.tone = d.chatTone; renderChat({ keepScroll: true }); }
-  else if (d.chatUse !== undefined) { chatUi.draft[person.id] = improveText(chatUi.draft[person.id] || '', chatUi.assist.tone, person); chatUi.assist = null; renderChat({ keepScroll: true }); }
-  else if (d.chatSug !== undefined) { chatUi.draft[person.id] = chatSuggestions(person, preferredChannel(person))[Number(d.chatSug)]; renderChat({ keepScroll: true }); }
-  else if (d.chatTemplate !== undefined) { chatUi.template[person.id] = templatesFor(person)[Number(d.chatTemplate)][1]; renderChat({ keepScroll: true }); }
+  else if (d.chatUse !== undefined) { chatUi.draft[person.id] = improvedDraft(person, (chatUi.draft[person.id] || '').trim(), chatUi.assist.tone); chatUi.assist = null; renderChat({ keepScroll: true }); }
+  else if (d.chatSug !== undefined) { chatUi.draft[person.id] = d.text || chatSuggestions(person, preferredChannel(person))[Number(d.chatSug)]; renderChat({ keepScroll: true }); }
   else if (d.chatSend !== undefined) sendDraft(person);
   else if (d.chatPickerClose !== undefined) { chatUi.picker = null; renderChat({ keepScroll: true }); }
   else if (d.chatPproject) { chatUi.picker = { project: d.chatPproject, type: 'photo', selected: [] }; renderChat({ keepScroll: true, focus: false }); }
@@ -451,8 +535,11 @@ companyView.addEventListener('input', event => {
   chatUi.draft[person.id] = event.target.value;
   autoGrow(event.target);
   if (chatUi.assist) {
-    const box = companyView.querySelector('.chat-assist');
-    if (box) box.outerHTML = assistPanel(person);
+    clearTimeout(chatUi.assistTimer);
+    chatUi.assistTimer = setTimeout(() => {
+      const box = companyView.querySelector('.chat-assist');
+      if (box) box.outerHTML = assistPanel(person);
+    }, groqKey() ? 700 : 0);
   }
 });
 
@@ -481,4 +568,38 @@ companyView.addEventListener('change', async event => {
   chatUi.draft[person.id] = '';
   renderChat();
   simulateReply(person, preferredChannel(person), sent);
+});
+
+// "Enviar" del showroom: manda el link como tarjeta en la conversación, igual que una vista previa de WhatsApp.
+companyView.addEventListener('click', event => {
+  const button = event.target.closest('[data-chat-showroom]');
+  if (!button) return;
+  const person = personById(button.dataset.chatShowroom);
+  if (!person?.showroom) return;
+  const channel = preferredChannel(person);
+  chatUi.tab[person.id] = 'chat';
+  const cover = projectById(person.showroom.projects[0]);
+  const item = sendMessage(person, { text: showroomMessage(person), att: { kind: 'showroom', url: showroomUrl(person), name: `Showroom de ${firstName(person)}`, src: cover ? photosFor(cover)[0]?.src || cover.image : '', count: person.showroom.projects.length } });
+  renderChat({ focus: false });
+  companyView.querySelector('#chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast(`Showroom enviado por ${CHANNEL_LABEL[channel]}`);
+  simulateReply(person, channel, [item]);
+});
+
+companyView.addEventListener('submit', event => {
+  if (!event.target.matches('[data-ai-form]')) return;
+  event.preventDefault();
+  const key = event.target.key.value.trim();
+  if (!/^gsk_/.test(key)) { toast('La clave de Groq empieza con gsk_'); return; }
+  try { localStorage.setItem(GROQ_STORE, key); } catch {}
+  toast('IA conectada');
+  renderChat({ keepScroll: true, focus: false });
+});
+
+companyView.addEventListener('click', event => {
+  if (!event.target.closest('[data-ai-disconnect]')) return;
+  try { localStorage.removeItem(GROQ_STORE); } catch {}
+  aiCache.sugs = {}; aiCache.brief = {}; aiCache.improve = {};
+  toast('IA desconectada');
+  renderChat({ keepScroll: true, focus: false });
 });

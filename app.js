@@ -189,7 +189,7 @@ const initialPeople = [
     { date:daysFromToday(-20), channel:'Visita', note:'Recorrió Brisas del Norte un sábado. Le gustó la casa modelo.', visit:'done', projectId:'casa-bdn' },
     { date:daysFromToday(-8), channel:'Llamada', note:'Está esperando la tasación de su casa para definir.' }
   ]},
-  { id:'p5', name:'Carla Ruiz', phone:'5493624000005', email:'carla.ruiz@correo.com', source:'Instagram', campaign:'c4', projects:['pueblo-mio', 'parque-arboledas'], interest:'Inversión', status:'En negociación', profile:{ typology:'Lote', budget:40000, goal:'Revalorización', modality:'Indistinto', units:2 }, notes:'Quiere dos lotes contiguos. Pide condiciones para pagar en 12 cuotas.', nextAction:{ text:'Enviar propuesta de pago por dos lotes', date:daysFromToday(-1) }, history:[
+  { id:'p5', name:'Carla Ruiz', phone:'', email:'carla.ruiz@correo.com', source:'Instagram', campaign:'c4', projects:['pueblo-mio', 'parque-arboledas'], interest:'Inversión', status:'En negociación', profile:{ typology:'Lote', budget:40000, goal:'Revalorización', modality:'Indistinto', units:2 }, notes:'Quiere dos lotes contiguos. Pide condiciones para pagar en 12 cuotas.', nextAction:{ text:'Enviar propuesta de pago por dos lotes', date:daysFromToday(-1) }, history:[
     { date:daysFromToday(-25), channel:'Instagram', note:'Consultó por lotes con vista a la laguna.' },
     { date:daysFromToday(-10), channel:'Visita', note:'Visitó Pueblo Mío y Parque Arboledas. Prefiere lotes contiguos.', visit:'done', projectId:'pueblo-mio' },
     { date:daysFromToday(-3), channel:'WhatsApp', note:'Pidió una propuesta por dos lotes en 12 cuotas.' }
@@ -204,7 +204,7 @@ const initialPeople = [
     { date:daysFromToday(-40), channel:'Presencial', note:'Se acercó a la oficina por Casas BDN.' },
     { date:daysFromToday(-6), channel:'Reunión', note:'Firmó el boleto de compraventa en el estudio.', visit:'done', projectId:'casa-bdn' }
   ]},
-  { id:'p9', name:'Martín Acosta', phone:'5493624000009', email:'martin.acosta@correo.com', source:'Instagram', campaign:'c1', projects:['marq-collection'], interest:'Inversión', status:'Visita agendada', profile:{ typology:'1 dormitorio', budget:160000, goal:'Revalorización', modality:'En pozo', units:2 }, notes:'Quiere dos unidades de un dormitorio en pozo para vender al terminar la obra.', nextAction:{ kind:'meeting', text:'Reunión en el showroom · MARQ Collection', date:daysFromToday(1), time:'10:00', place:'Showroom', projectId:'marq-collection' }, history:[
+  { id:'p9', name:'Martín Acosta', phone:'', email:'martin.acosta@correo.com', source:'Instagram', campaign:'c1', projects:['marq-collection'], interest:'Inversión', status:'Visita agendada', profile:{ typology:'1 dormitorio', budget:160000, goal:'Revalorización', modality:'En pozo', units:2 }, notes:'Quiere dos unidades de un dormitorio en pozo para vender al terminar la obra.', nextAction:{ kind:'meeting', text:'Reunión en el showroom · MARQ Collection', date:daysFromToday(1), time:'10:00', place:'Showroom', projectId:'marq-collection' }, history:[
     { date:daysFromToday(-6), channel:'Instagram', note:'Respondió el anuncio de la preventa de MARQ Collection.' },
     { date:daysFromToday(-3), channel:'Reunión', note:'Reunión en el estudio: le presentamos tipologías y el plan de pagos en pozo.', visit:'done', projectId:'marq-collection' }
   ]},
@@ -463,7 +463,9 @@ function renderProjectModal() {
   const amenities = amenitiesFor(project.id);
   const brochures = brochuresFor(project.id);
   const media = photosFor(project);
-  const plans = official?.plans || [];
+  // Planos, brochure y agendar visita son exclusivos del showroom personal: la landing solo presenta el proyecto.
+  const inShowroom = Boolean(showroomPerson());
+  const plans = inShowroom ? official?.plans || [] : [];
   const gallery = media;
   const videos = videosFor(project);
   const facts = (project.facts || []).filter(withoutPrice);
@@ -473,9 +475,9 @@ function renderProjectModal() {
   const idealFor = detail.profiles.map(key => PROFILES[key].tab.toLowerCase()).join(' y ').replace(/^./, c => c.toUpperCase());
   const paragraphs = (official?.paragraphs?.length ? official.paragraphs : [project.description]).filter(withoutPrice);
   const ficha = Object.entries(official?.ficha || {}).filter(([key]) => !/ubicaci/i.test(key));
-  const visitButton = showroomPerson()
+  const visitButton = inShowroom
     ? `<button class="pm-cta" type="button" data-request-visit="${esc(project.id)}">${icon('calendar')}Agendar una visita</button>`
-    : `<a class="pm-cta" data-web-visit href="${esc(whatsappUrl(MARQ_WHATSAPP, `Hola, quiero conocer ${project.name}.`))}" target="_blank" rel="noopener">${icon('whatsapp')}Quiero conocerlo</a>`;
+    : `<a class="pm-cta" data-web-visit href="${esc(whatsappUrl(MARQ_WHATSAPP, `Hola, quiero más información sobre ${project.name}.`))}" target="_blank" rel="noopener">${icon('whatsapp')}Consultar por WhatsApp</a>`;
   const thumbButton = (item, index) => `<button type="button" class="pm-thumb ${index === (projectView.media || 0) ? 'active' : ''}" data-pm-media="${index}" aria-label="Ver foto ${index + 1}"><img src="${esc(item.src)}" alt="" loading="lazy"></button>`;
   const panels = {
     resumen: `<h4 class="pm-heading">Sobre el proyecto</h4>
@@ -507,7 +509,7 @@ function renderProjectModal() {
       <div class="pm-grid">
         <div class="pm-panel" role="tabpanel">${panels[projectView.tab]}</div>
         <aside class="pm-card">
-          <h4>Conocelo en persona</h4>
+          <h4>${inShowroom ? 'Conocelo en persona' : 'Datos del proyecto'}</h4>
           <div class="pm-card-stage"><span>Etapa</span><b>${esc(STAGES[detail.stage].label)}</b></div>
           <dl>
             <div><dt>Estado</dt><dd>${esc(project.status)}</dd></div>
@@ -516,9 +518,9 @@ function renderProjectModal() {
             ${detail.profiles.length ? `<div><dt>Ideal para</dt><dd>${esc(idealFor)}</dd></div>` : ''}
           </dl>
           ${visitButton}
-          ${brochures.map(item => `<a class="pm-cta-secondary" href="${esc(item.url)}" target="_blank" rel="noopener" data-brochure="${esc(project.id)}">${icon('arrow-up-right')}${esc(item.label.replace(/^Brochure .*/, 'Ver brochure'))}</a>`).join('')}
+          ${inShowroom ? brochures.map(item => `<a class="pm-cta-secondary" href="${esc(item.url)}" target="_blank" rel="noopener" data-brochure="${esc(project.id)}">${icon('arrow-up-right')}${esc(item.label.replace(/^Brochure .*/, 'Ver brochure'))}</a>`).join('') : ''}
           <a class="pm-cta-secondary" href="#mapa" data-close-modal>${icon('grid')}Verlo en el mapa</a>
-          <p class="pm-fine">Te respondemos por WhatsApp y coordinamos la visita al estudio, al showroom o a la obra.</p>
+          <p class="pm-fine">${inShowroom ? 'Te respondemos por WhatsApp y coordinamos la visita al estudio, al showroom o a la obra.' : 'Escribinos y te armamos un showroom personal con planos, brochure y la opción de agendar una visita.'}</p>
         </aside>
       </div>
     </div>
@@ -1009,58 +1011,50 @@ function renderContact(person) {
   const segment = segmentOf(person);
   const profile = person.profile || {};
   const first = firstContact(person);
-  const fill = value => value ? esc(value) : `<button class="inline-link muted" data-action="edit-contact" data-id="${esc(person.id)}">Completar</button>`;
-  const rows = segment === 'inversor'
-    ? [['Ticket', profile.budget ? `${usd(profile.budget)}${profile.units > 1 ? ` · ${profile.units} unidades` : ''}` : ''], ['Objetivo', profile.goal], ['Modalidad', profile.modality], ['Tipología', profile.typology]]
-    : [['Presupuesto', usd(profile.budget)], ['Tipología', profile.typology], ['Financiación', profile.financing]];
-  rows.push(['Contacto desde', first ? `${formatDate(first)} (${relativeDay(first).toLowerCase()})` : '']);
+  const id = esc(person.id);
+  const add = label => `<button class="inline-link muted" data-action="edit-contact" data-id="${id}">${label}</button>`;
+  const facts = segment === 'inversor'
+    ? [['Objetivo', profile.goal], ['Tipología', profile.typology], ['Ticket', profile.budget ? `${usd(profile.budget)}${profile.units > 1 ? ` · ${profile.units} u.` : ''}` : ''], ['Modalidad', profile.modality]]
+    : [['Tipología', profile.typology], ['Presupuesto', profile.budget ? usd(profile.budget) : ''], ['Financiación', profile.financing]];
   const back = view.back || { name: segment === 'inversor' ? 'inversores' : 'particulares' };
   const backLabel = back.name === 'proyecto' ? projectById(back.id)?.name || 'el proyecto' : { agenda: 'el resumen', inversores: 'inversores', particulares: 'particulares' }[back.name] || 'el resumen';
-  return `<button class="admin-back" data-action="contact-back">${icon('arrow-left')}Volver a ${esc(backLabel)}</button>
-    <header class="contact-hero">
-      ${avatar(person.name, 'large')}
-      <div class="contact-hero-copy">
-        <div class="contact-tags">${segmentBadge(person)}${statusChip(person.status)}</div>
-        <h1>${esc(person.name)}</h1>
-        <p>+${esc(person.phone)}${person.email ? ` · ${esc(person.email)}` : ''}${first ? ` · Contacto desde ${esc(formatDate(first))}` : ''}</p>
-      </div>
-      <div class="contact-hero-actions">
-        <label class="status-field"><span>Etapa</span><select id="contact-status-select" class="status-select">${options(STATUSES, person.status)}</select></label>
-        <button class="admin-secondary" type="button" data-chat-focus="${esc(person.id)}">${icon('whatsapp')}Escribir</button>
-        <button class="admin-secondary" data-action="meeting" data-id="${esc(person.id)}">${icon('calendar')}Agendar reunión</button>
-        <button class="admin-secondary" data-action="edit-contact" data-id="${esc(person.id)}">${icon('pencil')}Editar</button>
-      </div>
-    </header>
-    <div class="contact-next">${nextCard(person)}</div>
-    <div class="contact-work">
-      ${typeof chatPanel === 'function' ? chatPanel(person) : activityPanel(person)}
-      <aside class="contact-aside">
-        ${typeof chatBrief === 'function' ? chatBrief(person) : ''}
-        ${teamCard(person)}
-        <details class="fold-card"><summary><b>Datos comerciales</b><small>${esc(rows.slice(0, 2).map(([, value]) => value).filter(Boolean).join(' · ') || 'Sin completar')}</small></summary>
-          <dl class="summary-grid">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${fill(value)}</dd></div>`).join('')}</dl>
-        </details>
-        <details class="fold-card"><summary><b>Showroom personal</b><small>${person.showroom ? `${person.showroom.projects.length} proyectos elegidos` : 'Sin generar'}</small></summary>${showroomPanel(person)}</details>
-        <details class="fold-card"><summary><b>Notas y novedades</b><small>${esc(person.notes ? `${person.notes.slice(0, 40)}${person.notes.length > 40 ? '…' : ''}` : 'Sin notas')}</small></summary>${notesPanel(person)}</details>
-      </aside>
-    </div>`;
-}
-
-// Lo que el equipo ve de un vistazo: qué busca, qué le interesa, cómo llegó y qué hizo en su showroom.
-function teamCard(person) {
   const campaign = campaignById(person.campaign);
-  const chose = (person.signals || []).some(signal => signal.type === 'profile');
   const journey = person.journey?.length ? person.journey : [person.source, campaign && `campaña “${campaign.name}”`].filter(Boolean);
-  const recent = [...(person.signals || [])].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 2);
-  return `<section class="team-card">
-    <div class="team-card-bar"><span class="live-dot"></span>MARQ Contigo · Lo que sabe el equipo</div>
-    <dl class="team-card-rows">
-      <div><dt>Busca</dt><dd><b>${esc(person.interest === 'Inversión' ? 'Inversión' : 'Vivienda propia')}</b>${chose ? '<span class="auto-tag">Lo eligió en su showroom</span>' : ''}</dd></div>
-      <div><dt>Le interesa</dt><dd class="chip-list">${person.projects.map(id => projectById(id) ? `<button class="project-chip" data-go="proyecto" data-id="${esc(id)}">${esc(projectById(id).name)}</button>` : '').join('') || '<span class="cell-sub">Sin proyecto</span>'}</dd></div>
-      <div><dt>Cómo llegó</dt><dd>${journey.map(esc).join(`<span class="journey-arrow">${icon('arrow-right')}</span>`)}</dd></div>
-      <div><dt>Actividad</dt><dd>${recent.length ? recent.map(signal => `<span class="activity-line ${isStrong(signal) ? 'strong' : ''}">${esc(signal.label)} · ${esc(relativeTime(signal.at).toLowerCase())}</span>`).join('') : '<span class="cell-sub">Todavía no abrió su showroom</span>'}</dd></div>
-    </dl>
-  </section>`;
+  const lastSignal = projectId => [...(person.signals || [])].filter(signal => signal.projectId === projectId).sort((x, y) => y.at.localeCompare(x.at))[0];
+  const projectRows = person.projects.map(projectById).filter(Boolean).map(project => {
+    const signal = lastSignal(project.id);
+    return `<button class="who-project" data-go="proyecto" data-id="${esc(project.id)}"><img src="${esc(photosFor(project)[0]?.src || project.image)}" alt="" loading="lazy"><span><b>${esc(project.name)}</b><small>${signal ? `${esc(signal.label)} · ${esc(relativeTime(signal.at).toLowerCase())}` : 'Todavía no lo vio en su showroom'}</small></span></button>`;
+  }).join('');
+  const showroom = person.showroom;
+  const showroomBox = showroom
+    ? `<div class="who-showroom"><b>${icon('sparkles')}Showroom personal</b><small>Generado ${esc(relativeDay(showroom.at).toLowerCase())} · ${plural(showroom.projects.length, 'proyecto', 'proyectos')}</small>
+        <div><button class="is-send" data-chat-showroom="${id}">${icon(person.phone ? 'whatsapp' : 'send')}Enviar</button><a href="${esc(showroomUrl(person))}" target="_blank" rel="noopener">Ver</a><button data-action="generate-showroom" data-id="${id}">${icon('pencil')}Rehacer</button></div></div>`
+    : `<div class="who-showroom empty"><b>${icon('sparkles')}Showroom personal</b><small>Un link propio con los proyectos que mejor le encajan.</small><div><button class="is-send" data-action="generate-showroom" data-id="${id}">Generar showroom</button></div></div>`;
+  return `<button class="admin-back" data-action="contact-back">${icon('arrow-left')}Volver a ${esc(backLabel)}</button>
+    <div class="client-layout">
+      <aside class="who-card">
+        <div class="who-id">${avatar(person.name, 'large')}<div><h1>${esc(person.name)}</h1><small>${segmentBadge(person)}${first ? `Cliente desde ${esc(formatDate(first))}` : ''}</small></div></div>
+        <label class="who-stage"><span>Etapa</span><select id="contact-status-select" class="status-select">${options(STATUSES, person.status)}</select></label>
+        <section class="who-sec"><h4>Contacto</h4>
+          <p class="who-line">${icon('whatsapp')}${person.phone ? `+${esc(person.phone)}` : '<span class="cell-sub">Sin teléfono · escribe por Instagram</span>'}</p>
+          <p class="who-line">${icon('send')}${person.email ? esc(person.email) : add('Agregar email')}</p>
+        </section>
+        <section class="who-sec"><h4>Qué busca</h4>
+          <dl class="who-facts">${facts.map(([label, value]) => `<div><dt>${label}</dt><dd>${value ? esc(value) : add('Completar')}</dd></div>`).join('')}</dl>
+        </section>
+        <section class="who-sec"><h4>Proyectos que mira</h4>${projectRows || '<p class="cell-sub">Sin proyecto todavía.</p>'}${showroomBox}</section>
+        ${journey.length ? `<section class="who-sec"><h4>Cómo llegó</h4><div class="who-journey">${journey.map(step => `<span>${esc(step)}</span>`).join(icon('arrow-right'))}</div></section>` : ''}
+        <section class="who-sec"><h4>Notas del equipo</h4><p class="who-notes">${person.notes ? esc(person.notes) : add('Agregar una nota')}</p></section>
+        <button class="admin-secondary who-edit" data-action="edit-contact" data-id="${id}">${icon('pencil')}Editar datos</button>
+      </aside>
+      <div class="client-main">
+        <section class="now-band">
+          ${nextCard(person)}
+          ${typeof chatBrief === 'function' ? chatBrief(person) : ''}
+        </section>
+        ${typeof chatPanel === 'function' ? chatPanel(person) : activityPanel(person)}
+      </div>
+    </div>`;
 }
 
 function activityPanel(person) {
@@ -1102,39 +1096,33 @@ function recommendProjects(person) {
 
 function showroomMessage(person) {
   const picks = (person.showroom?.projects || []).map(id => projectById(id)?.name).filter(Boolean);
-  return `Hola ${firstName(person)}, ¿cómo estás? Te preparé un espacio con ${picks.length ? `${listJoin(picks)}, elegidos para vos` : 'nuestros proyectos'}: precios, financiación y el equipo que lo hace posible. Miralo cuando quieras: ${showroomUrl(person)}`;
-}
-
-function showroomPanel(person) {
-  const showroom = person.showroom;
-  const head = `<div class="admin-panel-head"><div><h2>Showroom personal</h2><p>Un link propio para ${esc(firstName(person))}: lo que haga ahí aparece en su actividad.</p></div>${showroom ? `<button class="admin-link" data-action="generate-showroom" data-id="${esc(person.id)}">Rehacer</button>` : ''}</div>`;
-  if (!showroom) {
-    return `<section class="admin-panel showroom-empty">${head}
-      <p class="showroom-intro">Todavía no tiene showroom. Generalo y elegí qué proyectos verá primero: te sugerimos los que mejor encajan con su perfil.</p>
-      <button class="admin-primary" data-action="generate-showroom" data-id="${esc(person.id)}">Generar showroom</button>
-    </section>`;
-  }
-  const url = showroomUrl(person);
-  return `<section class="admin-panel">${head}
-    <div class="showroom-picks"><span>Elegidos para ${esc(firstName(person))}</span><div class="chip-list">${showroom.projects.map(id => projectById(id) ? `<button class="project-chip" data-go="proyecto" data-id="${esc(id)}">${esc(projectById(id).name)}</button>` : '').join('')}</div></div>
-    <div class="showroom-link"><input readonly value="${esc(url)}" aria-label="Link del showroom de ${esc(person.name)}"><button class="admin-secondary admin-small" data-action="copy-link" data-id="${esc(person.id)}">Copiar</button></div>
-    <div class="showroom-actions"><a class="admin-primary admin-small" href="${esc(whatsappUrl(person.phone, showroomMessage(person)))}" target="_blank" rel="noopener">${icon('whatsapp')}Enviar por WhatsApp</a><a class="admin-secondary admin-small" href="${esc(url)}" target="_blank" rel="noopener">${icon('eye')}Ver como cliente</a></div>
-  </section>`;
+  return `Hola ${firstName(person)}, ¿cómo estás? Te armé tu showroom personal con ${picks.length ? listJoin(picks) : 'nuestros proyectos'}. Ahí tenés los planos, el brochure y podés agendar una visita cuando quieras.`;
 }
 
 function openShowroomDialog(person) {
   const recommendations = recommendProjects(person);
+  const others = projects.filter(project => detailFor(project).forSale && !recommendations.some(item => item.project.id === project.id)).map(project => ({ project, reasons: [] }));
   const current = person.showroom?.projects;
-  openDialog({
-    eyebrow: person.name,
-    title: current ? 'Rehacer showroom' : 'Generar showroom',
-    intro: `Estos son los proyectos que mejor encajan con ${firstName(person)}. Elegí cuáles verá primero en su showroom; el resto del catálogo queda disponible más abajo.`,
-    fields: `<div class="reco-list">${recommendations.map(({ project, reasons }, index) => `<label class="reco-card">
-        <input type="checkbox" name="picks" value="${esc(project.id)}" ${(current ? current.includes(project.id) : index < 3) ? 'checked' : ''}>
+  const card = ({ project, reasons }, checked) => `<label class="reco-card">
+        <input type="checkbox" name="picks" value="${esc(project.id)}" ${checked ? 'checked' : ''}>
         <img src="${esc(project.image)}" alt="" loading="lazy">
         <span class="reco-copy"><b>${esc(project.name)}</b><small>${esc(STAGES[detailFor(project).stage].label)} · ${esc(project.location)}</small>
           ${reasons.length ? `<ul>${reasons.map(reason => `<li>${esc(reason)}</li>`).join('')}</ul>` : ''}</span>
-      </label>`).join('')}</div>`,
+      </label>`;
+  openDialog({
+    eyebrow: person.name,
+    title: current ? 'Rehacer showroom' : 'Generar showroom',
+    intro: `Elegí qué proyectos verá ${firstName(person)} en su showroom. Arriba están los que mejor le encajan; podés sumar cualquier otro.`,
+    fields: `<div class="reco-tools"><button type="button" class="admin-link" data-reco-all>Seleccionar todos</button></div>
+      <h3 class="reco-group">Recomendados para ${esc(firstName(person))}</h3>
+      <div class="reco-list">${recommendations.map((item, index) => card(item, current ? current.includes(item.project.id) : index < 3)).join('')}</div>
+      ${others.length ? `<h3 class="reco-group">Otros proyectos</h3><div class="reco-list">${others.map(item => card(item, current?.includes(item.project.id))).join('')}</div>` : ''}`,
+    onOpen: form => form.querySelector('[data-reco-all]').addEventListener('click', event => {
+      const boxes = [...form.querySelectorAll('input[name="picks"]')];
+      const all = boxes.every(box => box.checked);
+      boxes.forEach(box => { box.checked = !all; });
+      event.target.textContent = all ? 'Seleccionar todos' : 'Quitar todos';
+    }),
     submitLabel: current ? 'Guardar showroom' : 'Generar showroom',
     onSubmit: form => {
       const picks = form.getAll('picks');
@@ -1144,17 +1132,6 @@ function openShowroomDialog(person) {
       toast(current ? 'Showroom actualizado' : 'Showroom generado: ya podés enviarlo');
     }
   });
-}
-
-function notesPanel(person) {
-  const relatedNews = projects.filter(project => person.projects.includes(project.id))
-    .flatMap(project => (project.news || []).map(news => ({ project, news })))
-    .sort((a, b) => b.news.date.localeCompare(a.news.date)).slice(0, 3);
-  return `<section class="admin-panel"><div class="admin-panel-head"><div><h2>Notas</h2></div><button class="admin-link" data-action="edit-contact" data-id="${esc(person.id)}">Editar</button></div>
-    <p class="notes-text">${esc(person.notes) || '<span class="cell-sub">Sin notas.</span>'}</p>
-    <h3 class="group-title">Novedades de sus proyectos</h3>
-    ${relatedNews.length ? relatedNews.map(({ project, news }) => `<article class="admin-update"><span>${esc(formatDate(news.date))} · ${esc(project.name)}</span><h3>${esc(news.title)}</h3></article>`).join('') : '<p class="admin-empty">Sus proyectos todavía no tienen novedades.</p>'}
-  </section>`;
 }
 
 /* ---------- Tablero de proyecto ---------- */
