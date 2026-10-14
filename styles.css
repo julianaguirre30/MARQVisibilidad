@@ -8998,3 +8998,10 @@ body.company-mode .reco-card:has(input:checked) {
 /* La ficha del cliente usa todo el ancho disponible */
 .company-content:has(.client-layout) { max-width: none; }
 @media (min-width: 1600px) { .client-layout { grid-template-columns: 360px minmax(0, 1fr); } }
+
+/* Banner del showroom: en pantallas medianas y chicas, el botón va debajo del texto */
+.showroom-side { min-width: 0; }
+@media (max-width: 900px) {
+  .showroom-banner { grid-template-columns: 1fr; gap: 18px; padding: 24px; }
+  .showroom-side { justify-items: start; max-width: none; text-align: left; }
+}

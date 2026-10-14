@@ -306,7 +306,13 @@ const isStrong = signal => STRONG_SIGNALS.includes(signal.type);
 const hoursSince = at => (Date.now() - new Date(at)) / 3600000;
 // Abierta como archivo local (por ejemplo, dentro del comercial), el link usa la dirección publicada.
 const PUBLIC_URL = 'https://marqcontigo.vercel.app/';
-const showroomUrl = person => `${location.protocol === 'file:' ? PUBLIC_URL : location.href.split(/[?#]/)[0]}?showroom=${encodeURIComponent(person.id)}`;
+// El link lleva los proyectos elegidos y el nombre: así el showroom se arma igual en el celular del cliente,
+// aunque la ficha se haya guardado solo en el navegador del equipo.
+const showroomUrl = person => {
+  const params = new URLSearchParams({ showroom: person.id, n: firstName(person) });
+  if (person.showroom?.projects?.length) params.set('p', person.showroom.projects.join(','));
+  return `${location.protocol === 'file:' ? PUBLIC_URL : location.href.split(/[?#]/)[0]}?${params}`;
+};
 function relativeTime(at) {
   const minutes = Math.round((Date.now() - new Date(at)) / 60000);
   if (minutes < 1) return 'Recién';
@@ -381,7 +387,20 @@ function icon(name, extra = '') {
 
 // Un showroom es la misma web abierta con ?showroom=<id de contacto>: el link que la vendedora
 // le manda a alguien que ya escribió. Lo que haga ahí se registra en su ficha de MARQ Contigo.
-const showroomPerson = () => showroomId ? personById(showroomId) : null;
+const showroomParams = new URLSearchParams(location.search);
+let showroomGuest = null;
+function showroomPerson() {
+  if (!showroomId) return null;
+  const picks = (showroomParams.get('p') || '').split(',').filter(id => projectById(id));
+  let person = personById(showroomId);
+  if (!person) {
+    // Contacto que no está en este navegador: se arma con lo que trae el link.
+    showroomGuest ||= { id: showroomId, name: showroomParams.get('n') || 'Hola', projects: [...picks], interest: '', status: 'Nuevo contacto', history: [], signals: [] };
+    person = showroomGuest;
+  }
+  if (picks.length) person.showroom = { projects: picks, at: person.showroom?.at || todayIso() };
+  return person;
+}
 const activeFilter = () => document.querySelector('.filter.active')?.dataset.filter || 'Todos';
 const listJoin = items => items.length > 1 ? `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}` : items[0] || '';
 
@@ -587,7 +606,7 @@ function requestVisit(projectId) {
 function renderShowroomBanner() {
   const person = showroomPerson(); if (!person) return;
   const banner = document.querySelector('#showroom-banner');
-  const names = projectNames(person);
+  const names = (person.showroom?.projects?.length ? person.showroom.projects : person.projects).map(id => projectById(id)?.name).filter(Boolean);
   const requested = person.signals?.some(signal => signal.type === 'visit');
   banner.hidden = false;
   banner.innerHTML = `<div><span class="eyebrow"><span class="eyebrow-line"></span> TU SHOWROOM MARQ</span><h2>Hola, ${esc(firstName(person))}. Preparamos este espacio para vos.</h2><p>Acá está todo sobre ${names.length ? esc(listJoin(names)) : 'nuestros proyectos'}: las personas que lo hacen posible, en qué etapa está y dónde queda en la ciudad. Cuando quieras, lo vemos en persona.</p></div>
