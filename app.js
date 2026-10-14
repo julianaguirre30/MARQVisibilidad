@@ -16,8 +16,8 @@ const STRONG_SIGNALS = ['visit'];
 
 // Segmentos de la cartera: se atienden distinto, por eso cada uno tiene su propia vista.
 const SEGMENTS = {
-  inversor: { label: 'Inversor', plural: 'Inversores', interest: 'Inversión', mark: '▲' },
-  particular: { label: 'Particular', plural: 'Particulares', interest: 'Vivienda propia', mark: '●' }
+  inversor: { label: 'Inversor', plural: 'Inversores', interest: 'Inversión', icon: 'trending-up' },
+  particular: { label: 'Particular', plural: 'Particulares', interest: 'Vivienda propia', icon: 'home' }
 };
 // Perfil comercial: todos los campos son opcionales y se eligen con un clic.
 const TYPOLOGIES = ['Monoambiente', '1 dormitorio', '2 dormitorios', '3 dormitorios', 'Lote'];
@@ -251,6 +251,7 @@ const modeToggle = document.querySelector('#mode-toggle');
 let previousFocus = null, companyMode = false;
 let view = { name: 'agenda' };
 let listFilters = { query: '', project: '' };
+let navOpen = false; // Menú lateral desplegado (celular y tablet)
 let originMode = 'leads';
 let boardMode = 'board';
 let followup = null; // Recontacto por novedad: { projectId, newsId, selected, queue, index, sent }
@@ -286,7 +287,7 @@ function relativeTime(at) {
 const capitalize = text => text.charAt(0).toUpperCase() + text.slice(1);
 // Un próximo paso puede ser una reunión agendada: { kind: 'meeting', text, date, time, place, projectId }.
 const isMeeting = action => action?.kind === 'meeting';
-const actionText = action => isMeeting(action) ? `📅 ${action.text}` : action.text;
+const actionLabel = action => `${isMeeting(action) ? icon('calendar', 'inline') : ''}${esc(action.text)}`;
 const actionWhen = action => `${relativeDay(action.date)}${action.time ? ` · ${action.time} h` : ''}`;
 const actionKey = action => `${action.date}${action.time || ''}`;
 
@@ -297,6 +298,49 @@ function toast(message) {
   element.textContent = message;
   document.body.append(element);
   setTimeout(() => element.remove(), 2600);
+}
+
+/* ---------- Iconos ---------- */
+
+// Set de iconos SVG (trazos estilo Lucide). Heredan el color del texto: icon('nombre', 'clase extra').
+const ICON_PATHS = {
+  'arrow-up-right': '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
+  'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  minus: '<path d="M5 12h14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  menu: '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  calendar: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  'trending-up': '<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
+  'trending-down': '<path d="M22 17 13.5 8.5 8.5 13.5 2 7"/><path d="M16 17h6v-6"/>',
+  home: '<path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 21v-7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v7"/>',
+  dashboard: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  building: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+  'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>',
+  megaphone: '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  pencil: '<path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  eye: '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+  sparkles: '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  ban: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  refresh: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  'rotate-left': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  'rotate-right': '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  play: '<path d="M6 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L7.5 3.64A1 1 0 0 0 6 4.5z"/>',
+  stop: '<rect width="14" height="14" x="5" y="5" rx="2"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  whatsapp: '<path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5Z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5"/>',
+  'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
+};
+const FILLED_ICONS = ['play', 'stop'];
+function icon(name, extra = '') {
+  const filled = FILLED_ICONS.includes(name);
+  return `<svg class="icon icon-${name} ${extra}" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="${filled ? 0 : 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICON_PATHS[name] || ''}</svg>`;
 }
 
 /* ---------- Vista cliente y showroom personal ---------- */
@@ -327,9 +371,9 @@ function renderProjects(filter = activeFilter()) {
     <div class="project-info"><div class="project-meta"><span class="project-category">${esc(project.category)}${project.year ? ` · ${esc(project.year)}` : ''}</span><span class="project-year">${esc(project.location)}</span></div>
     <h2 class="project-title">${esc(project.name)}</h2><p class="project-description">${esc(project.description)}</p>
     ${project.facts?.length ? `<ul class="project-facts">${project.facts.map(fact => `<li>${esc(fact)}</li>`).join('')}</ul>` : ''}${hint && detail.forSale ? `<p class="profile-hint">${esc(hint)}</p>` : ''}
-    <div class="project-actions"><button class="team-link" type="button" data-team="${esc(project.id)}">Conocé quiénes están detrás <span>↗</span></button>${detail.forSale ? '' : `<span class="project-done">${/terminad/i.test(project.status) ? 'Obra realizada' : 'Próximamente'}</span>`}</div></div></article>`;
+    <div class="project-actions"><button class="team-link" type="button" data-team="${esc(project.id)}">Conocé quiénes están detrás ${icon('arrow-up-right')}</button>${detail.forSale ? '' : `<span class="project-done">${/terminad/i.test(project.status) ? 'Obra realizada' : 'Próximamente'}</span>`}</div></div></article>`;
   }).join('')
-    : `<div class="projects-empty"><p>Todavía no hay proyectos publicados en <strong>${esc(filter)}</strong>.</p><button class="text-link" type="button" data-filter-reset>Ver todos los proyectos <span>↗</span></button></div>`;
+    : `<div class="projects-empty"><p>Todavía no hay proyectos publicados en <strong>${esc(filter)}</strong>.</p><button class="text-link" type="button" data-filter-reset>Ver todos los proyectos ${icon('arrow-up-right')}</button></div>`;
   document.querySelector('#end-note-count').textContent = visible.length ? `01 — ${total}` : '00';
 }
 
@@ -392,7 +436,7 @@ function renderShowroomBanner() {
   const requested = person.signals?.some(signal => signal.type === 'visit');
   banner.hidden = false;
   banner.innerHTML = `<div><span class="eyebrow"><span class="eyebrow-line"></span> TU SHOWROOM MARQ</span><h2>Hola, ${esc(firstName(person))}. Preparamos este espacio para vos.</h2><p>Acá está todo sobre ${names.length ? esc(listJoin(names)) : 'nuestros proyectos'}: las personas que lo hacen posible, en qué etapa está y dónde queda en la ciudad. Cuando quieras, lo vemos en persona.</p></div>
-    <div class="showroom-side">${requested ? '<p class="visit-done">Listo. Te escribimos para coordinar la visita.</p>' : '<button class="team-link" type="button" data-request-visit="">Agendar una visita al estudio <span>↗</span></button>'}<small>Registramos qué proyectos mirás en este espacio para asesorarte mejor. Solo lo ve el equipo de MARQ.</small></div>`;
+    <div class="showroom-side">${requested ? '<p class="visit-done">Listo. Te escribimos para coordinar la visita.</p>' : `<button class="team-link" type="button" data-request-visit="">Agendar una visita al estudio ${icon('calendar')}</button>`}<small>Registramos qué proyectos mirás en este espacio para asesorarte mejor. Solo lo ve el equipo de MARQ.</small></div>`;
 }
 
 function initShowroom() {
@@ -422,8 +466,9 @@ document.addEventListener('click', event => {
 
 const segmentOf = person => person.interest === 'Inversión' ? 'inversor' : 'particular';
 const inSegment = segment => people.filter(person => segmentOf(person) === segment);
-const segmentMark = person => { const key = segmentOf(person); return `<span class="seg-mark seg-${key}" title="${SEGMENTS[key].label}">${SEGMENTS[key].mark}</span>`; };
-const segmentBadge = person => { const key = segmentOf(person); return `<span class="seg-badge seg-${key}">${SEGMENTS[key].mark} ${SEGMENTS[key].label}</span>`; };
+const segIcon = key => `<span class="seg-mark seg-${key}" title="${SEGMENTS[key].label}">${icon(SEGMENTS[key].icon)}</span>`;
+const segmentMark = person => segIcon(segmentOf(person));
+const segmentBadge = person => { const key = segmentOf(person); return `<span class="seg-badge seg-${key}">${icon(SEGMENTS[key].icon)}${SEGMENTS[key].label}</span>`; };
 const usd = value => value ? `USD ${Number(value).toLocaleString('es-AR')}` : '';
 const usdShort = value => value ? `USD ${value >= 1000 ? `${Math.round(value / 1000)}k` : value}` : '—';
 const ars = value => `$ ${Math.round(value).toLocaleString('es-AR')}`;
@@ -477,14 +522,24 @@ function setMode(enabled) {
   document.querySelector('footer').hidden = enabled;
   document.querySelector('.whatsapp').hidden = enabled;
   companyView.hidden = !enabled;
-  followup = null;
+  followup = null; navOpen = false;
+  document.body.classList.remove('nav-open');
   if (enabled) { view = { name: 'agenda' }; renderCompany(); }
   scrollToTop();
 }
 
+function setNav(open) {
+  navOpen = open;
+  companyView.querySelector('.company-shell')?.classList.toggle('nav-open', open);
+  companyView.querySelector('.nav-toggle')?.setAttribute('aria-expanded', String(open));
+  document.body.classList.toggle('nav-open', open);
+  if (open) companyView.querySelector('.company-nav-item.selected, .company-nav-item')?.focus();
+  else companyView.querySelector('.nav-toggle')?.focus();
+}
+
 function go(nextView) {
   if (nextView.name !== view.name && nextView.name !== 'contacto' && view.name !== 'contacto') listFilters = { query: '', project: '' };
-  view = nextView;
+  view = nextView; navOpen = false;
   renderCompany(); scrollToTop();
 }
 
@@ -494,34 +549,36 @@ function renderCompany() {
   const activeIn = segment => inSegment(segment).filter(isOpen).length;
   const titles = { agenda: 'Resumen', inversores: 'Inversores', particulares: 'Particulares', proyecto: projectById(view.id)?.name, contacto: personById(view.id)?.name };
   const current = view.name === 'contacto' ? (view.back?.name || (segmentOf(personById(view.id)) === 'inversor' ? 'inversores' : 'particulares')) : view.name;
-  const navItem = (name, label, count = null) => `<button class="company-nav-item ${current === name ? 'selected' : ''}" data-go="${name}">${label}${count === null ? '' : `<span class="nav-count">${count}</span>`}</button>`;
+  const navItem = (name, iconName, label, count = null) => `<button class="company-nav-item ${current === name ? 'selected' : ''}" data-go="${name}" ${current === name ? 'aria-current="page"' : ''}>${icon(iconName, 'nav-icon')}<span class="nav-label">${label}</span>${count === null ? '' : `<span class="nav-count">${count}</span>`}</button>`;
   const content = view.name === 'contacto' ? renderContact(personById(view.id))
     : view.name === 'inversores' ? renderSegment('inversor')
     : view.name === 'particulares' ? renderSegment('particular')
     : view.name === 'proyecto' ? renderProject(projectById(view.id))
     : renderSummary();
   const navProjects = projects.filter(project => detailFor(project).forSale && interestedIn(project.id).some(isOpen));
-  companyView.innerHTML = `<div class="company-shell">
-    <aside class="company-sidebar" aria-label="Navegación de MARQ Contigo">
-      <div class="company-brand"><b>marQ</b><span>CONTIGO</span></div>
-      <nav class="company-nav">${navItem('agenda', 'Resumen')}</nav>
+  companyView.innerHTML = `<div class="company-shell ${navOpen ? 'nav-open' : ''}">
+    <aside class="company-sidebar" id="company-sidebar" aria-label="Navegación de MARQ Contigo">
+      <div class="company-brand"><b>marQ</b><span>CONTIGO</span><button class="nav-close" data-action="close-nav" aria-label="Cerrar menú">${icon('x')}</button></div>
+      <nav class="company-nav">${navItem('agenda', 'dashboard', 'Resumen')}</nav>
       <p class="company-label">Cartera</p>
-      <nav class="company-nav">${navItem('inversores', '<span class="nav-mark">▲</span>Inversores', activeIn('inversor'))}${navItem('particulares', '<span class="nav-mark">●</span>Particulares', activeIn('particular'))}</nav>
+      <nav class="company-nav">${navItem('inversores', 'trending-up', 'Inversores', activeIn('inversor'))}${navItem('particulares', 'home', 'Particulares', activeIn('particular'))}</nav>
       <p class="company-label">Proyectos con interesados</p>
-      <nav class="company-nav">${navProjects.map(project => `<button class="company-nav-item ${(view.name === 'proyecto' && view.id === project.id) || (current === 'proyecto' && view.back?.id === project.id) ? 'selected' : ''}" data-go="proyecto" data-id="${esc(project.id)}"><span class="project-dot"></span>${esc(project.name)}<span class="nav-count">${interestedIn(project.id).filter(isOpen).length}</span></button>`).join('')}</nav>
+      <nav class="company-nav">${navProjects.map(project => { const selected = (view.name === 'proyecto' && view.id === project.id) || (current === 'proyecto' && view.back?.id === project.id); return `<button class="company-nav-item ${selected ? 'selected' : ''}" data-go="proyecto" data-id="${esc(project.id)}" ${selected ? 'aria-current="page"' : ''}>${icon('building', 'nav-icon')}<span class="nav-label">${esc(project.name)}</span><span class="nav-count">${interestedIn(project.id).filter(isOpen).length}</span></button>`; }).join('')}</nav>
       <div class="company-user">${avatar('Equipo Comercial')}<div>Equipo comercial<small>Datos de ejemplo</small></div></div>
-      <button class="sidebar-reset" data-action="reset">Restablecer datos de ejemplo</button>
+      <button class="sidebar-reset" data-action="reset">${icon('refresh')}Restablecer datos de ejemplo</button>
     </aside>
+    <div class="nav-backdrop" data-action="close-nav" aria-hidden="true"></div>
     <div class="company-main">
-      <div class="company-topbar"><span>MARQ Contigo / <b>${esc(titles[view.name] || '')}</b></span><div class="topbar-actions"><span class="demo-label">Prototipo</span><button class="admin-secondary admin-small" data-action="exit">Ver sitio público ↗</button></div></div>
+      <div class="company-topbar">
+        <button class="nav-toggle" data-action="toggle-nav" aria-controls="company-sidebar" aria-expanded="${navOpen}" aria-label="Abrir menú">${icon('menu')}</button>
+        <span class="topbar-brand"><b>marQ</b></span>
+        <span class="topbar-crumb"><span class="crumb-root">MARQ Contigo / </span><b>${esc(titles[view.name] || '')}</b></span>
+        <div class="topbar-actions"><span class="demo-label">Prototipo</span><button class="admin-secondary admin-small" data-action="exit" aria-label="Ver sitio público"><span class="label-wide">Ver sitio público</span>${icon('arrow-up-right')}</button></div>
+      </div>
       <div class="company-content">${content}</div>
     </div>
   </div>`;
-  // En el celular el menú es una barra deslizable: se lleva a la vista la sección actual.
-  const sidebar = companyView.querySelector('.company-sidebar');
-  const selected = sidebar.querySelector('.company-nav-item.selected');
-  // Si ya entra en la primera pantalla no se desplaza, para no recortar el logo.
-  if (selected && sidebar.scrollWidth > sidebar.clientWidth && selected.offsetLeft + selected.offsetWidth > sidebar.clientWidth) sidebar.scrollLeft = selected.offsetLeft - 70;
+  document.body.classList.toggle('nav-open', navOpen);
   // En el celular cada fila de tabla se muestra como tarjeta: cada celda lleva el nombre de su columna.
   companyView.querySelectorAll('.data-table').forEach(table => {
     const heads = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
@@ -544,11 +601,11 @@ function renderSummary() {
   const leadsIn = (from, to) => people.filter(person => { const days = daysSince(firstContact(person)); return days >= from && days < to; }).length;
   const week = leadsIn(0, 7), previous = leadsIn(7, 14), trend = week - previous;
   const done = meetingsThisMonth(), ahead = meetingsAheadThisMonth();
-  return `<div class="company-heading"><div><span class="eyebrow">${esc(dateLabel)}</span><h1>Resumen comercial</h1><p>Visitas, campañas y proyectos de un vistazo.</p></div><div class="heading-actions"><button class="admin-primary" data-action="new-contact">＋ Nuevo contacto</button></div></div>
+  return `<div class="company-heading"><div><span class="eyebrow">${esc(dateLabel)}</span><h1>Resumen comercial</h1><p>Visitas, campañas y proyectos de un vistazo.</p></div><div class="heading-actions"><button class="admin-primary" data-action="new-contact">${icon('user-plus')}Nuevo contacto</button></div></div>
     <div class="company-stats">
       ${kpi({ label: 'Visitas hoy', value: today.scheduled.length + today.done.length, note: nextVisit ? `Próxima: ${esc(nextVisit.time)} h · ${esc(firstName(nextVisit.person))}` : 'No quedan visitas por hoy' })}
-      ${kpi({ label: 'Cartera activa', value: people.filter(isOpen).length, note: `▲ ${plural(inSegment('inversor').filter(isOpen).length, 'inversor', 'inversores')} · ● ${plural(inSegment('particular').filter(isOpen).length, 'particular', 'particulares')}` })}
-      ${kpi({ label: 'Leads nuevos · 7 días', value: week, note: `<span class="trend ${trend >= 0 ? 'up' : 'down'}">${trend >= 0 ? '↑' : '↓'} ${Math.abs(trend)}</span> vs. semana anterior` })}
+      ${kpi({ label: 'Cartera activa', value: people.filter(isOpen).length, note: `${segIcon('inversor')}${plural(inSegment('inversor').filter(isOpen).length, 'inversor', 'inversores')} · ${segIcon('particular')}${plural(inSegment('particular').filter(isOpen).length, 'particular', 'particulares')}` })}
+      ${kpi({ label: 'Leads nuevos · 7 días', value: week, note: `<span class="trend ${trend >= 0 ? 'up' : 'down'}">${icon(trend >= 0 ? 'trending-up' : 'trending-down')}${Math.abs(trend)}</span> vs. semana anterior` })}
       ${kpi({ label: `Reuniones de ${monthName}`, value: `${done}<em>/ ${MONTHLY_MEETING_GOAL}</em>`, extra: `<div class="goal-bar" role="img" aria-label="${done} de ${MONTHLY_MEETING_GOAL} reuniones"><span style="width:${Math.min(100, (done / MONTHLY_MEETING_GOAL) * 100)}%"></span></div>`, note: ahead ? `${plural(ahead, 'más agendada', 'más agendadas')} este mes` : 'Ninguna más agendada este mes' })}
     </div>
 
@@ -597,7 +654,7 @@ function campaignsPanel() {
     <div class="table-scroll"><table class="data-table campaigns-table">
       <thead><tr><th>Campaña</th><th class="num">Invertido</th><th class="num">Leads</th><th class="num">$ por lead</th><th class="num">Reuniones</th><th class="num">Ventas</th></tr></thead>
       <tbody>${CAMPAIGNS.map(item => { const weak = item.leads >= 5 && item.meetings === 0; return `<tr class="${weak ? 'flagged' : ''}">
-        <td><b>${esc(item.name)}</b><small class="cell-sub" title="Desde el ${esc(formatDate(item.since))}"><span class="platform">${esc(item.platform)}</span> · <span class="${item.status === 'Activa' ? 'is-live' : ''}">${esc(item.status)}</span></small>${weak ? '<small class="cell-alert">⚠ Trae consultas pero ninguna reunión</small>' : ''}</td>
+        <td><b>${esc(item.name)}</b><small class="cell-sub" title="Desde el ${esc(formatDate(item.since))}"><span class="platform">${esc(item.platform)}</span> · <span class="${item.status === 'Activa' ? 'is-live' : ''}">${esc(item.status)}</span></small>${weak ? `<small class="cell-alert">${icon('alert')}Trae consultas pero ninguna reunión</small>` : ''}</td>
         <td class="num">${ars(item.spend)}</td><td class="num">${item.leads}</td><td class="num">${ars(item.spend / item.leads)}</td>
         <td class="num">${item.meetings}<small class="cell-sub">${rate(item.meetings, item.leads)}</small></td><td class="num">${item.sales || '—'}</td>
       </tr>`; }).join('')}</tbody>
@@ -649,13 +706,13 @@ function projectsOverview() {
           <td><b>${esc(project.name)}</b><small class="cell-sub">${esc(project.location)}</small></td>
           <td>${esc(STAGES[detailFor(project).stage].label)}</td>
           <td><span class="meter"><span style="width:${soldPct}%"></span></span><small class="cell-sub">${soldPct}% · quedan ${unsoldOf(inventory)} de ${inventory.total}</small></td>
-          <td><span class="seg-count"><span class="seg-mark seg-inversor">▲</span>${count('inversor')}</span><span class="seg-count"><span class="seg-mark seg-particular">●</span>${count('particular')}</span></td>
-          <td class="num">${projectMeetings(project.id)}${scheduled ? `<small class="cell-sub">＋${scheduled} agendada${scheduled === 1 ? '' : 's'}</small>` : ''}</td>
-          <td class="${newsAge === null || newsAge > 30 ? 'cell-warn' : ''}">${news ? `Hace ${newsAge} días` : 'Sin novedades'}${newsAge === null || newsAge > 30 ? ' ⚠' : ''}</td>
+          <td><span class="seg-count">${segIcon('inversor')}${count('inversor')}</span><span class="seg-count">${segIcon('particular')}${count('particular')}</span></td>
+          <td class="num">${projectMeetings(project.id)}${scheduled ? `<small class="cell-sub">+${scheduled} agendada${scheduled === 1 ? '' : 's'}</small>` : ''}</td>
+          <td class="${newsAge === null || newsAge > 30 ? 'cell-warn' : ''}">${news ? `Hace ${newsAge} días` : 'Sin novedades'}${newsAge === null || newsAge > 30 ? icon('alert', 'inline') : ''}</td>
         </tr>`;
       }).join('')}</tbody>
     </table></div>
-    ${stale.length ? `<p class="panel-foot warn">⚠ ${plural(stale.length, 'proyecto lleva', 'proyectos llevan')} más de 30 días sin publicar novedades: ${esc(listJoin(stale.map(project => project.name)))}. Publicar algo nuevo es el mejor motivo para volver a escribirles a los interesados.</p>` : ''}
+    ${stale.length ? `<p class="panel-foot warn">${icon('alert', 'inline')}${plural(stale.length, 'proyecto lleva', 'proyectos llevan')} más de 30 días sin publicar novedades: ${esc(listJoin(stale.map(project => project.name)))}. Publicar algo nuevo es el mejor motivo para volver a escribirles a los interesados.</p>` : ''}
   </section>`;
 }
 
@@ -704,11 +761,11 @@ function renderSegment(segment) {
   }
   const projectOptions = projects.filter(project => all.some(person => person.projects.includes(project.id)));
   const board = !isInvestor && boardMode === 'board';
-  return `<div class="company-heading"><div><span class="eyebrow">Cartera</span><h1>${SEGMENTS[segment].plural}</h1><p>${isInvestor ? 'Personas que compran para obtener renta o revalorización. Importa el ticket, el objetivo y qué proyectos comparan.' : 'Personas y familias que buscan dónde vivir. Importa la tipología, cómo van a pagar y qué los frena.'}</p></div><div class="heading-actions"><button class="admin-primary" data-action="new-contact" data-interest="${SEGMENTS[segment].interest}">＋ Nuevo ${SEGMENTS[segment].label.toLowerCase()}</button></div></div>
+  return `<div class="company-heading"><div><span class="eyebrow">Cartera</span><h1>${SEGMENTS[segment].plural}</h1><p>${isInvestor ? 'Personas que compran para obtener renta o revalorización. Importa el ticket, el objetivo y qué proyectos comparan.' : 'Personas y familias que buscan dónde vivir. Importa la tipología, cómo van a pagar y qué los frena.'}</p></div><div class="heading-actions"><button class="admin-primary" data-action="new-contact" data-interest="${SEGMENTS[segment].interest}">${icon('user-plus')}Nuevo ${SEGMENTS[segment].label.toLowerCase()}</button></div></div>
     <div class="company-stats">${stats.join('')}</div>
     <section class="admin-panel">
       <div class="filter-bar">
-        <label class="people-search"><span aria-hidden="true">⌕</span><input id="list-search" type="search" value="${esc(listFilters.query)}" placeholder="Buscar por nombre, proyecto o lo que busca" aria-label="Buscar ${SEGMENTS[segment].plural.toLowerCase()}"></label>
+        <label class="people-search">${icon('search')}<input id="list-search" type="search" value="${esc(listFilters.query)}" placeholder="Buscar por nombre, proyecto o lo que busca" aria-label="Buscar ${SEGMENTS[segment].plural.toLowerCase()}"></label>
         <select id="list-project" aria-label="Filtrar por proyecto"><option value="">Todos los proyectos</option>${projectOptions.map(project => `<option value="${esc(project.id)}" ${project.id === listFilters.project ? 'selected' : ''}>${esc(project.name)}</option>`).join('')}</select>
         ${isInvestor ? '' : `<div class="segmented compact" role="tablist" aria-label="Vista">${[['board', 'Tablero'], ['table', 'Tabla']].map(([key, label]) => `<button role="tab" aria-selected="${boardMode === key}" class="${boardMode === key ? 'active' : ''}" data-action="board-mode" data-mode="${key}">${label}</button>`).join('')}</div>`}
       </div>
@@ -731,8 +788,8 @@ function segmentTable(list, segment) {
         <td>${isInvestor ? `${esc(profile.goal || '—')}<small class="cell-sub">${esc([profile.typology, profile.modality].filter(Boolean).join(' · ') || 'Sin dato')}</small>` : `${esc(profile.typology || '—')}<small class="cell-sub ${profile.financing === 'Vende su propiedad' ? 'cell-alert' : ''}">${esc(profile.financing || 'Sin dato')}</small>`}</td>
         <td><span class="chip-list">${projectNames(person).map(name => `<span class="project-chip">${esc(name)}</span>`).join('') || '<span class="cell-sub">—</span>'}</span>${person.projects.length > 1 ? '<small class="cell-sub">Compara</small>' : ''}</td>
         <td>${statusChip(person.status)}</td>
-        <td class="${quiet ? 'cell-warn' : ''}">${last ? `${esc(relativeDay(last.date))}${quiet ? ' ⚠' : ''}<small class="cell-sub">${esc(last.channel)}</small>` : '—'}</td>
-        <td>${person.nextAction ? `<span class="cell-next">${esc(actionText(person.nextAction))}</span><span class="due-chip ${dueTone(person.nextAction.date)}">${esc(actionWhen(person.nextAction))}</span>` : `<span class="cell-sub">${isOpen(person) ? 'Sin próximo paso' : '—'}</span>`}</td>
+        <td class="${quiet ? 'cell-warn' : ''}">${last ? `${esc(relativeDay(last.date))}${quiet ? icon('alert', 'inline') : ''}<small class="cell-sub">${esc(last.channel)}</small>` : '—'}</td>
+        <td>${person.nextAction ? `<span class="cell-next">${actionLabel(person.nextAction)}</span><span class="due-chip ${dueTone(person.nextAction.date)}">${esc(actionWhen(person.nextAction))}</span>` : `<span class="cell-sub">${isOpen(person) ? 'Sin próximo paso' : '—'}</span>`}</td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
@@ -745,8 +802,8 @@ function boardView(list) {
     return `<article class="board-card" draggable="true" data-drag="${esc(person.id)}" data-go="contacto" data-id="${esc(person.id)}" tabindex="0" aria-label="${esc(person.name)}">
       <div class="board-card-head"><b>${esc(person.name)}</b></div>
       <small>${esc(projectNames(person).join(' · ') || 'Sin proyecto')}</small>
-      <div class="board-tags">${profile.typology ? `<span>${esc(profile.typology)}</span>` : ''}${profile.financing ? `<span class="${profile.financing === 'Vende su propiedad' ? 'blocked' : ''}">${profile.financing === 'Vende su propiedad' ? '⛔ ' : ''}${esc(profile.financing)}</span>` : ''}${profile.budget ? `<span>${usdShort(profile.budget)}</span>` : ''}</div>
-      ${person.nextAction ? `<p class="board-next"><span class="due-chip ${dueTone(person.nextAction.date)}">${esc(actionWhen(person.nextAction))}</span>${esc(actionText(person.nextAction))}</p>` : isOpen(person) ? '<p class="board-next none">Sin próximo paso</p>' : ''}
+      <div class="board-tags">${profile.typology ? `<span>${esc(profile.typology)}</span>` : ''}${profile.financing ? `<span class="${profile.financing === 'Vende su propiedad' ? 'blocked' : ''}">${profile.financing === 'Vende su propiedad' ? icon('ban', 'inline') : ''}${esc(profile.financing)}</span>` : ''}${profile.budget ? `<span>${usdShort(profile.budget)}</span>` : ''}</div>
+      ${person.nextAction ? `<p class="board-next"><span class="due-chip ${dueTone(person.nextAction.date)}">${esc(actionWhen(person.nextAction))}</span>${actionLabel(person.nextAction)}</p>` : isOpen(person) ? '<p class="board-next none">Sin próximo paso</p>' : ''}
     </article>`;
   };
   return `<p class="board-hint"><span class="hint-pointer">Arrastrá una tarjeta para cambiar la etapa. Tocala para abrir la ficha.</span><span class="hint-touch">Deslizá para ver cada etapa. Tocá una tarjeta para abrir la ficha y cambiarla de etapa.</span></p>
@@ -780,7 +837,7 @@ function renderContact(person) {
   rows.push(['Contacto desde', first ? `${formatDate(first)} (${relativeDay(first).toLowerCase()})` : '']);
   const back = view.back || { name: segment === 'inversor' ? 'inversores' : 'particulares' };
   const backLabel = back.name === 'proyecto' ? projectById(back.id)?.name || 'el proyecto' : { agenda: 'el resumen', inversores: 'inversores', particulares: 'particulares' }[back.name] || 'el resumen';
-  return `<button class="admin-back" data-action="contact-back">← Volver a ${esc(backLabel)}</button>
+  return `<button class="admin-back" data-action="contact-back">${icon('arrow-left')}Volver a ${esc(backLabel)}</button>
     <header class="contact-hero">
       ${avatar(person.name, 'large')}
       <div class="contact-hero-copy">
@@ -790,9 +847,9 @@ function renderContact(person) {
       </div>
       <div class="contact-hero-actions">
         <label class="status-field"><span>Etapa</span><select id="contact-status-select" class="status-select">${options(STATUSES, person.status)}</select></label>
-        <a class="admin-secondary" href="${esc(whatsappUrl(person.phone))}" target="_blank" rel="noopener">WhatsApp ↗</a>
-        <button class="admin-secondary" data-action="meeting" data-id="${esc(person.id)}">Agendar reunión</button>
-        <button class="admin-secondary" data-action="edit-contact" data-id="${esc(person.id)}">Editar</button>
+        <a class="admin-secondary" href="${esc(whatsappUrl(person.phone))}" target="_blank" rel="noopener">${icon('whatsapp')}WhatsApp</a>
+        <button class="admin-secondary" data-action="meeting" data-id="${esc(person.id)}">${icon('calendar')}Agendar reunión</button>
+        <button class="admin-secondary" data-action="edit-contact" data-id="${esc(person.id)}">${icon('pencil')}Editar</button>
       </div>
     </header>
     <div class="contact-next">${nextCard(person)}</div>
@@ -822,7 +879,7 @@ function teamCard(person) {
     <dl class="team-card-rows">
       <div><dt>Busca</dt><dd><b>${esc(person.interest === 'Inversión' ? 'Inversión' : 'Vivienda propia')}</b>${chose ? '<span class="auto-tag">Lo eligió en su showroom</span>' : ''}</dd></div>
       <div><dt>Le interesa</dt><dd class="chip-list">${person.projects.map(id => projectById(id) ? `<button class="project-chip" data-go="proyecto" data-id="${esc(id)}">${esc(projectById(id).name)}</button>` : '').join('') || '<span class="cell-sub">Sin proyecto</span>'}</dd></div>
-      <div><dt>Cómo llegó</dt><dd>${journey.map(esc).join(' <span class="journey-arrow">→</span> ')}</dd></div>
+      <div><dt>Cómo llegó</dt><dd>${journey.map(esc).join(`<span class="journey-arrow">${icon('arrow-right')}</span>`)}</dd></div>
       <div><dt>Actividad</dt><dd>${recent.length ? recent.map(signal => `<span class="activity-line ${isStrong(signal) ? 'strong' : ''}">${esc(signal.label)} · ${esc(relativeTime(signal.at).toLowerCase())}</span>`).join('') : '<span class="cell-sub">Todavía no abrió su showroom</span>'}</dd></div>
     </dl>
   </section>`;
@@ -833,7 +890,7 @@ function activityPanel(person) {
     ...person.history.map(item => ({ at: `${item.date}T12:00`, meta: `${formatDate(item.date)} · ${item.channel}`, text: item.note, kind: item.channel === 'Estado' ? 'state' : '', badge: item.visit === 'done' ? '<span class="status-chip tone-done">Reunión realizada</span>' : item.visit === 'noshow' ? '<span class="status-chip tone-warm">No vino</span>' : '' })),
     ...(person.signals || []).map(signal => ({ at: signal.at, meta: `${relativeTime(signal.at)} · Showroom`, text: signal.label, kind: isStrong(signal) ? 'signal strong' : 'signal', badge: '' }))
   ].sort((a, b) => b.at.localeCompare(a.at));
-  return `<section class="admin-panel"><div class="admin-panel-head"><div><h2>Actividad</h2><p>${plural(person.history.length, 'interacción', 'interacciones')} del equipo y ${plural((person.signals || []).length, 'acción', 'acciones')} en su showroom, en una sola línea de tiempo.</p></div><button class="admin-secondary admin-small" data-action="log" data-id="${esc(person.id)}">＋ Registrar interacción</button></div>
+  return `<section class="admin-panel"><div class="admin-panel-head"><div><h2>Actividad</h2><p>${plural(person.history.length, 'interacción', 'interacciones')} del equipo y ${plural((person.signals || []).length, 'acción', 'acciones')} en su showroom, en una sola línea de tiempo.</p></div><button class="admin-secondary admin-small" data-action="log" data-id="${esc(person.id)}">${icon('plus')}Registrar interacción</button></div>
     <ol class="timeline">${events.map(item => `<li class="${item.kind}"><span class="timeline-meta">${esc(item.meta)}</span><p>${esc(item.text)}</p>${item.badge}</li>`).join('')}</ol>
   </section>`;
 }
@@ -883,7 +940,7 @@ function showroomPanel(person) {
   return `<section class="admin-panel">${head}
     <div class="showroom-picks"><span>Elegidos para ${esc(firstName(person))}</span><div class="chip-list">${showroom.projects.map(id => projectById(id) ? `<button class="project-chip" data-go="proyecto" data-id="${esc(id)}">${esc(projectById(id).name)}</button>` : '').join('')}</div></div>
     <div class="showroom-link"><input readonly value="${esc(url)}" aria-label="Link del showroom de ${esc(person.name)}"><button class="admin-secondary admin-small" data-action="copy-link" data-id="${esc(person.id)}">Copiar</button></div>
-    <div class="showroom-actions"><a class="admin-primary admin-small" href="${esc(whatsappUrl(person.phone, showroomMessage(person)))}" target="_blank" rel="noopener">Enviar por WhatsApp ↗</a><a class="admin-secondary admin-small" href="${esc(url)}" target="_blank" rel="noopener">Ver como cliente ↗</a></div>
+    <div class="showroom-actions"><a class="admin-primary admin-small" href="${esc(whatsappUrl(person.phone, showroomMessage(person)))}" target="_blank" rel="noopener">${icon('whatsapp')}Enviar por WhatsApp</a><a class="admin-secondary admin-small" href="${esc(url)}" target="_blank" rel="noopener">${icon('eye')}Ver como cliente</a></div>
   </section>`;
 }
 
@@ -943,11 +1000,11 @@ function renderProject(project) {
   const buyers = active.map(person => ({ person, matches: matchUnits(person, inventory) }))
     .sort((a, b) => Number(!a.matches.length) - Number(!b.matches.length));
   const demand = typology => active.filter(person => person.profile?.typology === typology).length;
-  return `<button class="admin-back" data-go="agenda">← Volver al resumen</button>
-    <div class="company-heading"><div><span class="eyebrow">${esc(project.category)} · ${esc(STAGES[detail.stage].label)}${project.year ? ` · ${esc(project.year)}` : ''}</span><h1>${esc(project.name)}</h1><p>${esc(project.location)} · ${esc(project.status)}</p></div><div class="heading-actions"><button class="admin-primary" data-action="add-news">＋ Publicar novedad</button></div></div>
+  return `<button class="admin-back" data-go="agenda">${icon('arrow-left')}Volver al resumen</button>
+    <div class="company-heading"><div><span class="eyebrow">${esc(project.category)} · ${esc(STAGES[detail.stage].label)}${project.year ? ` · ${esc(project.year)}` : ''}</span><h1>${esc(project.name)}</h1><p>${esc(project.location)} · ${esc(project.status)}</p></div><div class="heading-actions"><button class="admin-primary" data-action="add-news">${icon('megaphone')}Publicar novedad</button></div></div>
     <div class="company-stats">
       ${inventory ? kpi({ label: 'Stock sin vender', value: `${unsold}<em>de ${inventory.total}</em>`, extra: `<div class="goal-bar" role="img" aria-label="${soldPct}% vendido"><span style="width:${soldPct}%"></span></div>`, note: `${soldPct}% vendido` }) : kpi({ label: 'Stock sin vender', value: '—', note: 'Sin stock cargado' })}
-      ${kpi({ label: 'Interesados activos', value: active.length, note: `▲ ${plural(count('inversor'), 'inversor', 'inversores')} · ● ${plural(count('particular'), 'particular', 'particulares')}` })}
+      ${kpi({ label: 'Interesados activos', value: active.length, note: `${segIcon('inversor')}${plural(count('inversor'), 'inversor', 'inversores')} · ${segIcon('particular')}${plural(count('particular'), 'particular', 'particulares')}` })}
       ${inventory ? kpi({ label: 'Ritmo de venta', value: `${String(inventory.salesPerMonth).replace('.', ',')}<em>u./mes</em>`, note: `~${plural(Math.ceil(unsold / inventory.salesPerMonth), 'mes', 'meses')} para vender lo que queda` }) : kpi({ label: 'Ritmo de venta', value: '—' })}
       ${kpi({ label: 'Reuniones · 30 días', value: meetings, tone: !meetings && active.length ? 'alert' : '', note: scheduled ? `${plural(scheduled, 'agendada', 'agendadas')} a futuro` : active.length && !meetings ? 'Hay interesados pero ninguna reunión' : 'Ninguna agendada' })}
     </div>
@@ -961,14 +1018,14 @@ function renderProject(project) {
           </table></div><p class="panel-foot">Stock de ejemplo. En producción lo actualizaría administración con cada reserva o boleto.</p>` : '<p class="admin-empty">Este proyecto todavía no tiene stock cargado.</p>'}
         </section>
         <section class="admin-panel"><div class="admin-panel-head"><div><h2>Novedades publicadas</h2><p>Visibles en la ficha pública. Cada una es un motivo para volver a escribir.</p></div></div>
-          ${project.news?.length ? project.news.map(item => `<article class="admin-update"><span>${esc(formatDate(item.date))} · ${esc(item.type)}</span><h3>${esc(item.title)}</h3><p>${esc(item.body)}</p><button class="admin-link" data-action="start-followup" data-news="${esc(item.id)}">Avisar a interesados →</button></article>`).join('') : '<div class="admin-empty">Todavía no hay novedades. Publicá la primera actualización del proyecto.</div>'}
+          ${project.news?.length ? project.news.map(item => `<article class="admin-update"><span>${esc(formatDate(item.date))} · ${esc(item.type)}</span><h3>${esc(item.title)}</h3><p>${esc(item.body)}</p><button class="admin-link" data-action="start-followup" data-news="${esc(item.id)}">Avisar a interesados ${icon('arrow-right')}</button></article>`).join('') : '<div class="admin-empty">Todavía no hay novedades. Publicá la primera actualización del proyecto.</div>'}
         </section>
       </div>
       <section class="admin-panel"><div class="admin-panel-head"><div><h2>Quién puede comprar</h2><p>Interesados activos y qué unidad encaja con lo que buscan.</p></div></div>
         ${buyers.length ? buyers.map(({ person, matches }) => `<button class="buyer-row" data-go="contacto" data-id="${esc(person.id)}">
           ${avatar(person.name)}
           <span class="buyer-copy"><b>${segmentMark(person)}${esc(person.name)}</b><small>${esc(profileLine(person) || 'Perfil sin completar')}</small>
-            <span class="buyer-match ${matches.length ? 'ok' : 'none'}">${matches.length ? `→ Encaja: ${esc(matches.map(type => `${type.typology} desde ${usdShort(type.from)} (${type.available} disp.)`).join(' · '))}` : inventory ? 'Ninguna unidad disponible encaja con lo que busca' : 'Sin stock cargado para comparar'}</span></span>
+            <span class="buyer-match ${matches.length ? 'ok' : 'none'}">${matches.length ? `${icon('check')}Encaja: ${esc(matches.map(type => `${type.typology} desde ${usdShort(type.from)} (${type.available} disp.)`).join(' · '))}` : inventory ? 'Ninguna unidad disponible encaja con lo que busca' : 'Sin stock cargado para comparar'}</span></span>
           ${statusChip(person.status)}
         </button>`).join('') : '<p class="admin-empty">No hay interesados activos en este proyecto.</p>'}
         ${bought ? `<p class="panel-foot">${plural(bought, 'persona ya compró', 'personas ya compraron')} en este proyecto: pueden recomendarlo.</p>` : ''}
@@ -979,13 +1036,13 @@ function renderProject(project) {
 function renderFollowup(project) {
   const news = project.news.find(item => item.id === followup.newsId);
   const candidates = interestedIn(project.id);
-  const close = '<button class="dialog-close" data-action="close-followup" aria-label="Cerrar recontacto">×</button>';
+  const close = `<button class="dialog-close" data-action="close-followup" aria-label="Cerrar recontacto">${icon('x')}</button>`;
   if (!followup.queue.length) {
     const count = followup.selected.length;
     const allSelected = candidates.length > 0 && count === candidates.length;
     return `<section class="admin-panel followup-panel"><div class="admin-panel-head"><div><span class="eyebrow"><span class="eyebrow-line"></span> Novedad: ${esc(news.title)}</span><h2>¿A quién le avisamos?</h2><p>Estas personas consultaron por ${esc(project.name)}. Elegí a quiénes volver a contactar: cada mensaje lo revisás y lo enviás vos.</p></div>${close}</div>
       ${candidates.length ? `<div class="select-list">${candidates.map(person => { const last = lastInteraction(person); return `<label class="person-row select-row"><input type="checkbox" data-select="${esc(person.id)}" ${followup.selected.includes(person.id) ? 'checked' : ''}>${avatar(person.name)}<span class="associated-copy"><b>${personName(person)}</b><small>${esc(SEGMENTS[segmentOf(person)].label)} · Última interacción: ${last ? esc(relativeDay(last.date).toLowerCase()) : '—'}</small></span>${statusChip(person.status)}</label>`; }).join('')}</div>
-      <div class="people-actions"><button class="admin-link" data-action="select-all">${allSelected ? 'Quitar selección' : 'Seleccionar todos'}</button><button class="admin-primary" data-action="prepare" ${count ? '' : 'disabled'}>Preparar ${count || ''} ${count === 1 ? 'mensaje' : 'mensajes'} →</button></div>` : '<p class="admin-empty">No hay contactos interesados en este proyecto todavía.</p>'}
+      <div class="people-actions"><button class="admin-link" data-action="select-all">${allSelected ? 'Quitar selección' : 'Seleccionar todos'}</button><button class="admin-primary" data-action="prepare" ${count ? '' : 'disabled'}>Preparar ${count || ''} ${count === 1 ? 'mensaje' : 'mensajes'} ${icon('arrow-right')}</button></div>` : '<p class="admin-empty">No hay contactos interesados en este proyecto todavía.</p>'}
     </section>`;
   }
   if (followup.index >= followup.queue.length) {
@@ -996,7 +1053,7 @@ function renderFollowup(project) {
   return `<section class="admin-panel followup-panel"><div class="admin-panel-head"><div><span class="eyebrow"><span class="eyebrow-line"></span> Mensaje ${followup.index + 1} de ${followup.queue.length}</span><h2>${esc(person.name)}</h2><p>Revisá y ajustá el mensaje antes de abrir WhatsApp.</p></div>${close}</div>
     <div class="queue-progress"><span style="width:${(followup.index / followup.queue.length) * 100}%"></span></div>
     <textarea class="message-text" id="followup-message" aria-label="Mensaje para ${esc(person.name)}">${esc(draft.message)}</textarea>
-    <div class="people-actions"><button class="admin-link" data-action="skip">Saltear este contacto</button><a class="admin-primary" id="followup-send" data-action="send" href="${esc(whatsappUrl(person.phone, draft.message))}" target="_blank" rel="noopener">Abrir WhatsApp y registrar ↗</a></div>
+    <div class="people-actions"><button class="admin-link" data-action="skip">Saltear este contacto</button><a class="admin-primary" id="followup-send" data-action="send" href="${esc(whatsappUrl(person.phone, draft.message))}" target="_blank" rel="noopener">${icon('whatsapp')}Abrir WhatsApp y registrar</a></div>
   </section>`;
 }
 
@@ -1015,12 +1072,12 @@ const readNextAction = form => {
   return text ? { text, date: form.get('nextDate') || daysFromToday(2) } : null;
 };
 const optionalOptions = (list, selected, empty = 'Sin definir') => `<option value="">${empty}</option>${list.map(item => `<option ${item === selected ? 'selected' : ''}>${esc(item)}</option>`).join('')}`;
-const SEGMENT_OPTIONS = [['Vivienda propia', '● Particular'], ['Inversión', '▲ Inversor']];
+const SEGMENT_OPTIONS = [['Vivienda propia', 'Particular'], ['Inversión', 'Inversor']];
 
 function openDialog({ eyebrow = '', title, intro = '', fields, submitLabel, onSubmit, onOpen }) {
   const backdrop = document.createElement('div');
   backdrop.className = 'update-dialog-backdrop';
-  backdrop.innerHTML = `<form class="update-dialog"><div class="admin-panel-head"><div>${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ''}<h2>${esc(title)}</h2></div><button type="button" class="dialog-close" aria-label="Cerrar">×</button></div>${intro ? `<p>${esc(intro)}</p>` : ''}${fields}<div class="dialog-actions"><button type="button" class="admin-secondary" data-dismiss>Cancelar</button><button class="admin-primary" type="submit">${esc(submitLabel)}</button></div></form>`;
+  backdrop.innerHTML = `<form class="update-dialog"><div class="admin-panel-head"><div>${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ''}<h2>${esc(title)}</h2></div><button type="button" class="dialog-close" aria-label="Cerrar">${icon('x')}</button></div>${intro ? `<p>${esc(intro)}</p>` : ''}${fields}<div class="dialog-actions"><button type="button" class="admin-secondary" data-dismiss>Cancelar</button><button class="admin-primary" type="submit">${esc(submitLabel)}</button></div></form>`;
   const dismiss = () => backdrop.remove();
   backdrop.addEventListener('click', event => { if (event.target === backdrop) dismiss(); });
   backdrop.querySelectorAll('.dialog-close,[data-dismiss]').forEach(button => button.addEventListener('click', dismiss));
@@ -1170,6 +1227,8 @@ companyView.addEventListener('click', event => {
   else if (action === 'contact-back') go(view.back || { name: 'agenda' });
   else if (action === 'origin-mode') { originMode = target.dataset.mode; renderCompany(); }
   else if (action === 'board-mode') { boardMode = target.dataset.mode; renderCompany(); }
+  else if (action === 'toggle-nav') setNav(!navOpen);
+  else if (action === 'close-nav') setNav(false);
   else if (action === 'generate-showroom') openShowroomDialog(person);
   else if (action === 'copy-link') {
     navigator.clipboard?.writeText(showroomUrl(person)).then(() => toast('Link del showroom copiado'), () => toast('No se pudo copiar el link'));
@@ -1273,6 +1332,7 @@ document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
   const dialog = document.querySelector('.update-dialog-backdrop');
   if (dialog) dialog.remove();
+  else if (navOpen) setNav(false);
   else if (modal.classList.contains('open')) closeModal();
 });
 

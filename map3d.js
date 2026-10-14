@@ -248,14 +248,14 @@
     const item = find(id);
     const project = projectById(id);
     const soon = SEQUENCE.some(entry => entry.id === id && entry.start === FUTURE.start);
-    card.innerHTML = `<button class="map-card-close" type="button" data-map-close aria-label="Cerrar">×</button>
+    card.innerHTML = `<button class="map-card-close" type="button" data-map-close aria-label="Cerrar">${icon('x')}</button>
       ${soon ? '<span class="map-card-soon">Próximamente</span>' : ''}<img src="${esc(project.image)}" alt="${esc(project.imageAlt)}">
       <div class="map-card-body">
         <span class="map-card-status">${esc(project.category)} · ${esc(project.status)}</span>
         <h3>${esc(project.name)}</h3>
         <p class="map-card-address">${esc(item.address)}</p>
         <p>${esc(project.description)}</p>
-        <div class="map-card-actions"><button class="btn-primary" type="button" data-team="${esc(id)}">Quiénes están detrás <span>↗</span></button></div>
+        <div class="map-card-actions"><button class="btn-primary" type="button" data-team="${esc(id)}">Quiénes están detrás ${icon('arrow-up-right')}</button></div>
       </div>`;
     card.hidden = false;
     card.classList.remove('is-in');
@@ -373,7 +373,7 @@
     stopTimeline();
     scrub(100);
     touring = true;
-    document.querySelector('#map-tour').textContent = '■ Detener recorrido';
+    document.querySelector('#map-tour').innerHTML = `${icon('stop')}Detener recorrido`;
     const order = [...places, ...areas].map(item => item.id);
     let index = 0;
     const next = () => {
@@ -388,7 +388,7 @@
     if (!touring) return;
     touring = false;
     clearTimeout(tourTimer);
-    document.querySelector('#map-tour').textContent = '▶ Recorrer las obras';
+    document.querySelector('#map-tour').innerHTML = `${icon('play')}Recorrer las obras`;
     if (backToOverview) { clearSelection(); goToOverview(); }
   }
 

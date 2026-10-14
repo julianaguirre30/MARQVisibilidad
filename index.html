@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=mobile5" />
+    <link rel="stylesheet" href="styles.css?v=responsive6" />
     <script src="app.js" defer></script>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
@@ -31,7 +31,7 @@
         <a href="#servicios">Servicios</a>
         <a href="#contacto">Contacto</a>
       </nav>
-      <div class="header-actions"><a class="header-contact" href="#proyectos"><span aria-hidden="true">▦</span> Ver propiedades</a><button class="mode-toggle" id="mode-toggle" type="button">MARQ Contigo ↗</button></div>
+      <div class="header-actions"><a class="header-contact" href="#proyectos"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg> Ver propiedades</a><button class="mode-toggle" id="mode-toggle" type="button">MARQ Contigo <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></button></div>
       <button class="menu-toggle" aria-label="Abrir navegación" aria-expanded="false"><span></span><span></span></button>
     </header>
 
@@ -70,8 +70,8 @@
             <div class="hero-lead-wrap" data-reveal style="--d: 0.9s">
               <p class="hero-lead">Hace 18 años diseñamos, desarrollamos y administramos los edificios y barrios que cambiaron el perfil de Resistencia.</p>
               <div class="hero-actions">
-                <a class="btn-primary btn-light magnetic" href="#proyectos">Explorar proyectos <span>↓</span></a>
-                <a class="btn-text btn-text-light" href="#mapa">Ver las obras en el mapa <span>↗</span></a>
+                <a class="btn-primary btn-light magnetic" href="#proyectos">Explorar proyectos <span><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></span></a>
+                <a class="btn-text btn-text-light" href="#mapa">Ver las obras en el mapa <span><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span></a>
               </div>
             </div>
             <div class="hero-index" data-reveal style="--d: 1.05s">
@@ -108,14 +108,14 @@
             <div class="map-ticks"></div>
           </div>
           <div class="map-tools">
-            <button type="button" id="map-tour" class="map-tour">▶ Recorrer las obras</button>
+            <button type="button" id="map-tour" class="map-tour"><svg class="icon " viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L7.5 3.64A1 1 0 0 0 6 4.5z"/></svg>Recorrer las obras</button>
             <button type="button" id="map-overview">Ver toda la región</button>
-            <button type="button" id="map-zoom-in" aria-label="Acercar">+</button>
-            <button type="button" id="map-zoom-out" aria-label="Alejar">−</button>
-            <button type="button" id="map-rotate-left" aria-label="Girar el mapa a la izquierda" title="Girar (también: Ctrl + arrastrar)">↺</button>
-            <button type="button" id="map-rotate-right" aria-label="Girar el mapa a la derecha" title="Girar (también: Ctrl + arrastrar)">↻</button>
+            <button type="button" id="map-zoom-in" aria-label="Acercar"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+            <button type="button" id="map-zoom-out" aria-label="Alejar"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/></svg></button>
+            <button type="button" id="map-rotate-left" aria-label="Girar el mapa a la izquierda" title="Girar (también: Ctrl + arrastrar)"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
+            <button type="button" id="map-rotate-right" aria-label="Girar el mapa a la derecha" title="Girar (también: Ctrl + arrastrar)"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>
           </div>
-          <p class="map-note">Para girar el mapa usá ↺ ↻ o Ctrl + arrastrar. Alturas aproximadas. Lo que viene se ve en un dorado más claro; los loteos, en su zona aproximada.</p>
+          <p class="map-note">Para girar el mapa usá los botones de giro o Ctrl + arrastrar. Alturas aproximadas. Lo que viene se ve en un dorado más claro; los loteos, en su zona aproximada.</p>
         </div>
       </section>
 
@@ -127,8 +127,8 @@
         </div>
         <div class="profile-picker" role="group" aria-label="¿Qué estás buscando?">
           <p class="profile-question"><span class="eyebrow-line"></span> ¿QUÉ ESTÁS BUSCANDO?</p>
-          <button class="profile-card" type="button" data-profile="vivienda" aria-pressed="false" data-reveal><span class="profile-kicker">Para vivir</span><strong>Busco mi próxima vivienda</strong><span>Los proyectos pensados para vivir y cómo se accede a cada uno.</span><span class="profile-arrow" aria-hidden="true">↗</span></button>
-          <button class="profile-card" type="button" data-profile="inversion" aria-pressed="false" data-reveal style="--d: 0.08s"><span class="profile-kicker">Para invertir</span><strong>Busco oportunidades de inversión</strong><span>Los proyectos para invertir y en qué etapa está cada uno.</span><span class="profile-arrow" aria-hidden="true">↗</span></button>
+          <button class="profile-card" type="button" data-profile="vivienda" aria-pressed="false" data-reveal><span class="profile-kicker">Para vivir</span><strong>Busco mi próxima vivienda</strong><span>Los proyectos pensados para vivir y cómo se accede a cada uno.</span><span class="profile-arrow" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span></button>
+          <button class="profile-card" type="button" data-profile="inversion" aria-pressed="false" data-reveal style="--d: 0.08s"><span class="profile-kicker">Para invertir</span><strong>Busco oportunidades de inversión</strong><span>Los proyectos para invertir y en qué etapa está cada uno.</span><span class="profile-arrow" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span></button>
         </div>
         <div class="project-toolbar">
           <div class="filters" role="group" aria-label="Filtrar proyectos">
@@ -158,7 +158,7 @@
           <article class="service" data-reveal style="--d: 0.12s"><span>03</span><h3>Interiorismo</h3><p>Iluminación, mobiliario y materialidad para que cada espacio se viva como fue pensado.</p></article>
           <article class="service" data-reveal style="--d: 0.18s"><span>04</span><h3>Urbanismo y loteos</h3><p>Barrios que conservan el bosque nativo y el agua: Pueblo Mío, Gran Arboledas, Brisas del Norte.</p></article>
           <article class="service" data-reveal style="--d: 0.24s"><span>05</span><h3>Gestión y administración</h3><p>Permisos municipales, administración fiduciaria y gestión de consorcios una vez que el edificio toma vida.</p></article>
-          <article class="service service-highlight" data-reveal style="--d: 0.3s"><span>Nuevo</span><h3>Estudio de prefactibilidad</h3><p>¿Tenés un terreno? Analizamos qué se puede construir, qué demanda hay y si los números cierran.</p><a class="btn-text" data-web-visit href="https://wa.me/5493624119351?text=Hola%2C%20tengo%20un%20terreno%20y%20quiero%20consultar%20por%20un%20estudio%20de%20prefactibilidad." target="_blank" rel="noopener">Consultar <span>↗</span></a></article>
+          <article class="service service-highlight" data-reveal style="--d: 0.3s"><span>Nuevo</span><h3>Estudio de prefactibilidad</h3><p>¿Tenés un terreno? Analizamos qué se puede construir, qué demanda hay y si los números cierran.</p><a class="btn-text" data-web-visit href="https://wa.me/5493624119351?text=Hola%2C%20tengo%20un%20terreno%20y%20quiero%20consultar%20por%20un%20estudio%20de%20prefactibilidad." target="_blank" rel="noopener">Consultar <span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span></a></article>
         </div>
       </section>
 
@@ -168,7 +168,7 @@
       <div class="footer-cta page-width">
         <span class="eyebrow"><span class="eyebrow-line"></span> CONTACTO</span>
         <h2 data-reveal>¿Tenés un proyecto <em>en mente?</em></h2>
-        <a class="footer-big magnetic" data-web-visit href="https://wa.me/5493624119351?text=Hola%2C%20quiero%20hacer%20una%20consulta%20al%20estudio." target="_blank" rel="noopener">Hablemos <span>↗</span></a>
+        <a class="footer-big magnetic" data-web-visit href="https://wa.me/5493624119351?text=Hola%2C%20quiero%20hacer%20una%20consulta%20al%20estudio." target="_blank" rel="noopener">Hablemos <span><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span></a>
       </div>
       <div class="footer-grid page-width">
         <div><img class="footer-logo" src="https://estudiomarq.com.ar/wp-content/uploads/2024/12/estudiomarq.svg" alt="MARQ" /><p>Arquitectura y desarrollo inmobiliario.</p></div>
@@ -183,13 +183,13 @@
     <div class="modal" id="team-modal" aria-hidden="true">
       <div class="modal-backdrop" data-close-modal></div>
       <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <button class="modal-close" aria-label="Cerrar ventana" data-close-modal>×</button>
+        <button class="modal-close" aria-label="Cerrar ventana" data-close-modal><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         <div class="modal-scroll">
           <div class="modal-topline"><span class="eyebrow"><span class="eyebrow-line"></span> EL EQUIPO DETRÁS</span><span class="modal-index"></span></div>
           <div class="modal-heading"><div><span class="project-category modal-category"></span><h2 id="modal-title"></h2></div><p class="modal-lede">Un proyecto no se construye solamente a partir de una idea. Conocé a quienes participaron en hacerlo realidad.</p></div>
           <div class="team-intro"><h3>Detrás de cada<br /><em>proyecto</em></h3><p>Personas, equipos y organizaciones que aportaron su experiencia, sus ideas y su trabajo.</p></div>
           <div class="team-grid" id="team-grid"></div>
-          <div class="modal-bottom"><span>UN PROYECTO MARQ</span><button class="return-button" data-close-modal>Volver al proyecto <span>↗</span></button></div>
+          <div class="modal-bottom"><span>UN PROYECTO MARQ</span><button class="return-button" data-close-modal>Volver al proyecto <span><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></span></button></div>
         </div>
       </section>
     </div>

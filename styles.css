@@ -4656,84 +4656,6 @@ body.is-loading {
 /* ---------- Mobile: MARQ Contigo (CRM) en iPhone 17 Pro / Pro Max ---------- */
 
 @media (max-width: 480px) {
-  /* La barra lateral pasa a ser una barra superior con navegación deslizable */
-  .company-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .company-sidebar {
-    position: static;
-    height: auto;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 10px 12px;
-    padding: max(16px, env(safe-area-inset-top)) 16px 12px;
-    overflow: visible;
-  }
-
-  .company-brand {
-    margin: 0;
-  }
-
-  .company-label,
-  .company-user {
-    display: none;
-  }
-
-  .sidebar-reset {
-    margin: 0;
-    font-size: 0.68rem;
-  }
-
-  .company-nav {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-direction: row;
-    gap: 6px;
-    margin: 0 -16px;
-    padding: 0 16px 2px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .company-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .company-nav + .company-label + .company-nav {
-    margin-top: -2px;
-  }
-
-  .company-nav-item {
-    flex: none;
-    width: auto;
-    gap: 8px;
-    padding: 8px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 999px;
-    white-space: nowrap;
-  }
-
-  .company-nav-item.selected {
-    box-shadow: none;
-    border-color: var(--brand);
-  }
-
-  .company-topbar {
-    height: auto;
-    min-height: 52px;
-    padding: 8px 16px;
-    font-size: 0.74rem;
-  }
-
-  .company-topbar > span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .demo-label {
     display: none;
   }
@@ -5431,86 +5353,10 @@ body.company-mode,
 }
 
 /* ==========================================================================
-   MARQ Contigo en el celular (iPhone 17 Pro 402 pt · Pro Max 440 pt)
+   MARQ Contigo en celular y tablet vertical (hasta 860 px)
    ========================================================================== */
 
-@media (max-width: 520px) {
-  /* Navegación: una sola barra fija arriba, con la marca y las secciones deslizables */
-  .company-view .company-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .company-view .company-sidebar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    height: auto;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-  }
-
-  .company-view .company-sidebar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .company-view .company-brand {
-    flex: none;
-    margin: 0 6px 0 0;
-    gap: 6px;
-  }
-
-  .company-view .company-brand b {
-    font-size: 1.5rem;
-  }
-
-  .company-view .company-brand span {
-    display: none;
-  }
-
-  .company-view .company-nav {
-    display: contents;
-  }
-
-  .company-view .company-label,
-  .company-view .company-user,
-  .company-view .sidebar-reset {
-    display: none;
-  }
-
-  .company-view .company-nav-item {
-    flex: none;
-    width: auto;
-    min-height: 36px;
-    padding: 7px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 999px;
-    font-size: 0.8rem;
-    white-space: nowrap;
-  }
-
-  .company-view .company-nav-item.selected {
-    box-shadow: none;
-    border-color: var(--brand);
-  }
-
-  .company-view .company-topbar {
-    position: static;
-    min-height: 48px;
-    padding: 8px 16px;
-  }
-
-  .company-view .company-topbar .admin-secondary {
-    padding: 0.45rem 0.8rem;
-    font-size: 0.7rem;
-  }
-
+@media (max-width: 860px) {
   .company-view .company-content {
     padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
   }
@@ -5923,4 +5769,413 @@ body.company-mode,
 .site-header.menu-open {
   background: var(--bg);
   border-bottom-color: var(--line);
+}
+
+/* ==========================================================================
+   Iconos SVG
+   ========================================================================== */
+
+.icon {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  vertical-align: -0.14em;
+}
+
+.icon.inline {
+  margin: 0 4px;
+}
+
+.admin-primary .icon,
+.admin-secondary .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.admin-back,
+.sidebar-reset,
+.inline-link,
+.admin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-back .icon { width: 16px; height: 16px; }
+.sidebar-reset .icon { width: 13px; height: 13px; }
+
+.dialog-close,
+.modal-close,
+.map-card-close {
+  display: inline-grid;
+  place-items: center;
+}
+
+.dialog-close .icon,
+.map-card-close .icon { width: 16px; height: 16px; }
+.modal-close .icon { width: 20px; height: 20px; }
+
+.people-search .icon { width: 16px; height: 16px; }
+
+.seg-mark {
+  display: inline-flex;
+  margin-right: 5px;
+  vertical-align: -2px;
+}
+
+.seg-mark .icon { width: 14px; height: 14px; }
+
+.seg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.seg-badge .icon { width: 13px; height: 13px; }
+
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.trend .icon { width: 14px; height: 14px; }
+
+.cell-alert {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cell-alert .icon,
+.panel-foot .icon,
+.cell-warn .icon { width: 14px; height: 14px; }
+
+.journey-arrow {
+  display: inline-flex;
+  margin: 0 6px;
+  vertical-align: -2px;
+}
+
+.journey-arrow .icon { width: 14px; height: 14px; }
+
+.buyer-match {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.buyer-match .icon { width: 14px; height: 14px; margin-top: 2px; }
+
+.board-tags .icon { width: 11px; height: 11px; margin: 0 3px 0 0; vertical-align: -1px; }
+
+.map-tools button,
+.map-tour {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.map-tools .icon { width: 16px; height: 16px; }
+.map-tour .icon { width: 12px; height: 12px; }
+
+/* Menú lateral con íconos */
+.company-nav-item .nav-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+}
+
+.company-nav-item.selected .nav-icon,
+.company-nav-item:hover .nav-icon {
+  opacity: 1;
+  color: var(--brand-soft);
+}
+
+.nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* El botón hamburguesa y el cierre del cajón solo existen en celular y tablet */
+.nav-toggle,
+.topbar-brand,
+.nav-close,
+.nav-backdrop {
+  display: none;
+}
+
+.company-topbar .admin-secondary .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* ==========================================================================
+   MARQ Contigo · menú hamburguesa (celular y tablet, hasta 1024 px)
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  body.nav-open {
+    overflow: hidden;
+  }
+
+  .company-view .company-shell {
+    grid-template-columns: 1fr;
+  }
+
+  /* El menú lateral pasa a ser un cajón que se desliza desde la izquierda */
+  .company-view .company-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+    width: min(300px, 86vw);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: calc(18px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-radius: 0 22px 22px 0;
+    box-shadow: 24px 0 60px rgba(0, 0, 0, 0.28);
+    transform: translateX(-104%);
+    visibility: hidden;
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.32s;
+  }
+
+  .company-view .nav-open .company-sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s;
+  }
+
+  .company-view .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: rgba(17, 17, 17, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .company-view .nav-open .nav-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .company-view .company-brand {
+    align-items: center;
+    margin: 0 2px 18px 10px;
+  }
+
+  .company-view .nav-close {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    margin-left: auto;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 50%;
+    background: transparent;
+    color: #f4f0ea;
+    cursor: pointer;
+  }
+
+  .company-view .nav-close .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .company-view .company-nav-item {
+    min-height: 46px;
+    font-size: 0.9rem;
+  }
+
+  /* Barra superior: hamburguesa, marca, sección actual y salida al sitio */
+  .company-view .company-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    height: auto;
+    min-height: 62px;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: calc(10px + env(safe-area-inset-top)) 24px 10px;
+  }
+
+  .company-view .nav-toggle {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(40, 30, 15, 0.14);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(30, 20, 10, 0.06);
+    cursor: pointer;
+  }
+
+  .company-view .nav-toggle .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .company-view .topbar-brand {
+    display: inline-flex;
+    flex: none;
+    color: var(--ink);
+    font: 700 1.4rem/1 "DM Sans", sans-serif;
+    letter-spacing: -0.08em;
+  }
+
+  .company-view .topbar-crumb {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .company-view .topbar-actions {
+    flex: none;
+    margin-left: auto;
+  }
+
+  .company-view .company-content {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  /* Contenido a todo el ancho: dos columnas solo donde entran */
+  .company-view .company-columns,
+  .company-view .company-columns.wide-left {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) and (min-width: 861px) {
+  .company-view .contact-layout {
+    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
+  }
+}
+
+/* Celular: barra superior compacta */
+@media (max-width: 560px) {
+  .company-view .company-topbar {
+    gap: 10px;
+    padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+    min-height: 58px;
+  }
+
+  .company-view .crumb-root,
+  .company-view .label-wide,
+  .company-view .demo-label {
+    display: none;
+  }
+
+  .company-view .topbar-crumb b {
+    font-size: 0.86rem;
+  }
+
+  .company-view .company-topbar .admin-secondary {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 12px;
+  }
+
+  .company-view .company-topbar .admin-secondary .icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .company-view .company-content {
+    padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
+  }
+
+  .company-view .company-heading h1,
+  .company-view .contact-hero h1 {
+    font-size: 1.95rem;
+  }
+}
+
+/* Celulares muy angostos (iPhone SE y similares) */
+@media (max-width: 380px) {
+  .company-view .company-stats,
+  .company-view .company-stats.three {
+    grid-template-columns: 1fr;
+  }
+
+  .company-view .topbar-brand {
+    display: none;
+  }
+
+  .company-view .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Ficha del contacto en celular: avatar junto al nombre y acciones debajo a todo el ancho */
+@media (max-width: 860px) {
+  .company-view .contact-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 14px;
+  }
+
+  .company-view .contact-hero-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Menú del sitio: las dos líneas se cruzan en una X al abrirse */
+.menu-toggle span {
+  transition: transform 0.25s ease;
+}
+
+.site-header.menu-open .menu-toggle span:first-child {
+  transform: translateY(3.5px) rotate(45deg);
+}
+
+.site-header.menu-open .menu-toggle span:last-child {
+  transform: translateY(-3.5px) rotate(-45deg);
+}
+
+/* Tablet vertical: aprovechar el ancho en la ficha del contacto */
+@media (min-width: 561px) and (max-width: 860px) {
+  .company-view .contact-trio {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .company-view .contact-trio .team-card {
+    grid-column: 1 / -1;
+  }
+
+  .company-view .contact-trio .team-card-rows > div {
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .company-view .contact-next .next-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "eyebrow actions" "title actions" "meta actions";
+  }
+
+  .company-view .contact-next .next-card .next-actions {
+    margin-top: 0;
+  }
+
+  .company-view .contact-hero-actions .status-field {
+    flex: 1 1 auto;
+  }
 }
