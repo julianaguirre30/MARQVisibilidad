@@ -422,14 +422,57 @@ function renderChat({ keepScroll = false, focus = true } = {}) {
   if (!panel || !person) return;
   const wall = panel.querySelector('#wa-wall');
   const scroll = wall?.scrollTop;
-  panel.outerHTML = chatPanel(person);
+  const typing = document.activeElement?.id === 'chat-input' && !chatUi.picker && !chatUi.menu;
+  if (typing && wall) {
+    // Mientras se escribe no se toca el cuadro de texto: en el celular, reemplazarlo cierra el teclado.
+    const next = document.createElement('div');
+    next.innerHTML = chatPanel(person);
+    const swap = selector => { const old = panel.querySelector(selector); const fresh = next.querySelector(selector); if (old && fresh) old.replaceWith(fresh); return fresh; };
+    swap('.chat-tabs');
+    swap('#wa-wall');
+    panel.querySelector('.chat-sugs')?.remove();
+    const sugs = next.querySelector('.chat-sugs');
+    if (sugs) panel.querySelector('.chat-assist, .chat-composer')?.before(sugs);
+    const input = panel.querySelector('#chat-input');
+    const draft = chatUi.draft[person.id] || '';
+    if (input.value !== draft) { input.value = draft; input.setSelectionRange(draft.length, draft.length); }
+    autoGrow(input);
+  } else {
+    panel.outerHTML = chatPanel(person);
+  }
   const fresh = companyView.querySelector('#wa-wall');
   if (fresh) fresh.scrollTop = keepScroll && scroll !== undefined ? scroll : fresh.scrollHeight;
   const brief = companyView.querySelector('.ai-brief');
   if (brief) brief.outerHTML = chatBrief(person);
+  if (typing) return;
   const input = companyView.querySelector('#chat-input');
-  if (input) { autoGrow(input); if (focus && !chatUi.picker) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); } }
+  if (input) { autoGrow(input); if (focus && !chatUi.picker && !isPhone()) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); } }
 }
+
+/* ---------- Celular: el chat ocupa el espacio que deja el teclado, como en WhatsApp ---------- */
+const isPhone = () => matchMedia('(max-width: 640px)').matches;
+function fitToKeyboard() {
+  const view = window.visualViewport;
+  document.documentElement.style.setProperty('--vv-top', `${view ? view.offsetTop : 0}px`);
+  document.documentElement.style.setProperty('--vv-height', `${view ? view.height : innerHeight}px`);
+  const wall = companyView.querySelector('#wa-wall');
+  if (wall && document.body.classList.contains('chat-typing')) wall.scrollTop = wall.scrollHeight;
+}
+window.visualViewport?.addEventListener('resize', fitToKeyboard);
+window.visualViewport?.addEventListener('scroll', fitToKeyboard);
+companyView.addEventListener('focusin', event => {
+  if (event.target.id !== 'chat-input' || !isPhone()) return;
+  document.body.classList.add('chat-typing');
+  fitToKeyboard();
+});
+companyView.addEventListener('focusout', event => {
+  if (event.target.id !== 'chat-input') return;
+  setTimeout(() => { if (document.activeElement?.id !== 'chat-input') document.body.classList.remove('chat-typing'); }, 120);
+});
+// Tocar enviar o una sugerencia no debe cerrar el teclado.
+companyView.addEventListener('pointerdown', event => {
+  if (document.activeElement?.id === 'chat-input' && event.target.closest('[data-chat-send],[data-chat-sug],[data-chat-sugs-close]')) event.preventDefault();
+});
 
 function autoGrow(input) { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight, 140)}px`; }
 

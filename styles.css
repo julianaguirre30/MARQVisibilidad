@@ -9207,3 +9207,16 @@ body.company-mode .reco-card:has(input:checked) {
 .chat-sugs-close { position: absolute; top: 50%; right: 10px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #6b665f; cursor: pointer; transform: translateY(-50%); }
 .chat-sugs-close:hover { background: #ece7df; color: var(--ink); }
 .chat-sugs-close .icon { width: 15px; height: 15px; }
+
+/* Celular: sin zoom al tocar el cuadro de texto (iPhone hace zoom con letra de menos de 16 px)
+   y, con el teclado abierto, el chat ocupa justo el espacio visible, como en WhatsApp. */
+@media (max-width: 640px) {
+  .chat-composer textarea { font-size: 16px; }
+  body.chat-typing { overflow: hidden; }
+  body.chat-typing .company-view .chat-card {
+    position: fixed; z-index: 300; left: 0; right: 0; top: var(--vv-top, 0); height: var(--vv-height, 100dvh);
+    margin: 0; border-radius: 0; border: 0;
+  }
+  body.chat-typing .chat-composer { padding-bottom: 8px; }
+}
+.chat-sugs-close { background: #faf8f4; box-shadow: -12px 0 12px #faf8f4; }
