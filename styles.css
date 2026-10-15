@@ -9518,3 +9518,5 @@ body.company-mode .reco-card:has(input:checked) {
   .update-dialog-backdrop .update-dialog input:not([type="checkbox"]), .update-dialog-backdrop .update-dialog select, .update-dialog-backdrop .update-dialog textarea { font-size: 16px; }
 }
 body:has(.update-dialog-backdrop) .vpills-float { display: none; }
+.who-visit { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 4px 0 2px; min-height: 42px; }
+.who-visit .icon { width: 15px; height: 15px; }

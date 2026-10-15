@@ -1146,6 +1146,7 @@ function renderContact(person) {
       <aside class="who-card">
         <div class="who-id">${avatar(person.name, 'large')}<button class="who-edit-icon" data-action="edit-contact" data-id="${id}" aria-label="Editar datos" title="Editar datos">${icon('pencil')}</button><div><h1>${esc(person.name)}</h1><small>${segmentBadge(person)}${first ? `Cliente desde ${esc(formatDate(first))}` : ''}</small></div></div>
         <label class="who-stage"><span>Etapa</span><select id="contact-status-select" class="status-select">${options(STATUSES, person.status)}</select></label>
+        <button class="admin-primary who-visit" data-visit-cal="${id}">${icon('calendar')}Agendar visita</button>
         <section class="who-sec"><h4>Contacto</h4>
           <div class="who-pills">${person.phone ? `<span class="who-pill">${icon('whatsapp')}+${esc(person.phone)}</span>` : '<span class="who-pill muted">Sin teléfono · Instagram</span>'}${person.email ? `<span class="who-pill">${icon('send')}${esc(person.email)}</span>` : `<button class="who-pill add" data-action="edit-contact" data-id="${id}">${icon('plus')}Agregar email</button>`}</div>
         </section>
@@ -1155,7 +1156,6 @@ function renderContact(person) {
         <section class="who-sec"><h4>Proyectos que mira</h4>${projectRows || '<p class="cell-sub">Sin proyecto todavía.</p>'}${showroomBox}</section>
         ${journey.length ? `<section class="who-sec"><h4>Cómo llegó</h4><div class="who-journey">${journey.map(step => `<span>${esc(step)}</span>`).join(icon('arrow-right'))}</div></section>` : ''}
         <section class="who-sec"><h4>Notas del equipo</h4><p class="who-notes">${person.notes ? esc(person.notes) : add('Agregar una nota')}</p></section>
-        <button class="admin-primary who-edit" data-visit-cal="${id}">${icon('calendar')}Agendar visita</button>
       </aside>
       <div class="client-main">
         <section class="now-band">
