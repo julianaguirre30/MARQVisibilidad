@@ -9455,3 +9455,15 @@ body.company-mode .reco-card:has(input:checked) {
 .vcal-modal .vcal { position: relative; inset: auto; width: min(980px, 100%); max-height: calc(100vh - 48px); }
 @media (max-width: 760px) { .vcal-modal { padding: 0; } .vcal-modal .vcal { max-height: 100vh; height: 100%; border-radius: 0; } }
 .company-nav-item .nav-label small em { color: #4fd08a; font-style: normal; font-weight: 700; }
+
+/* Ficha del cliente: todo entra en el alto de la pantalla; el chat y la columna de datos
+   se desplazan por dentro en vez de estirar la página. */
+@media (min-width: 1101px) {
+  .company-content:has(.client-layout) { padding-top: 16px; padding-bottom: 16px; }
+  .company-content:has(.client-layout) .admin-back { margin-bottom: 10px; }
+  .client-layout { height: calc(100dvh - 56px - 32px - 38px); min-height: 520px; align-items: stretch; }
+  .client-main { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .client-main > .now-band { flex: none; }
+  .client-main > .chat-card { flex: 1; min-height: 0; height: auto; }
+  .client-layout > .who-card { position: static; max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
+}
