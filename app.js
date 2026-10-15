@@ -252,6 +252,8 @@ const initialSignals = {
   ]
 };
 initialPeople.forEach(person => { person.signals = initialSignals[person.id] || []; });
+// Ana pidió una visita desde su showroom y todavía nadie le propuso un horario.
+initialPeople.find(person => person.id === 'p1').visit = { status: 'requested', projectId: 'torre-panorama', requestedAt: new Date(Date.now() - 3600000).toISOString() };
 
 const loadList = (key, fallback) => {
   try { const value = JSON.parse(localStorage.getItem(key)); if (Array.isArray(value)) return value; } catch {}
@@ -590,8 +592,10 @@ function requestVisit(projectId) {
   const project = projectById(projectId);
   logSignal('visit', projectId || null, `Pidió agendar una visita${project ? ` por ${project.name}` : ''}`, person => {
     person.nextAction = { source: 'showroom', text: `Coordinar la visita al estudio que pidió desde su showroom${project ? ` (${project.name})` : ''}`, date: todayIso() };
+    if (person.visit?.status !== 'confirmed') person.visit = { status: 'requested', projectId: projectId || person.projects[0] || null, requestedAt: new Date().toISOString() };
   });
   renderShowroomBanner();
+  toast('Solicitud enviada. El equipo de MARQ te propone un horario por WhatsApp.');
 }
 
 /* ---------- Showroom personal ----------
@@ -728,7 +732,7 @@ function dockHtml(person, units, visitAsked) {
   const unit = units.find(item => item.project.id === srState.sel) || units[0];
   return `<img src="${esc(photosFor(unit.project)[0]?.src || unit.project.image)}" alt="">
     <div class="sr-dock-t"><b>${esc(unit.project.name)}</b><small>${esc(unitTitle(unit))}</small></div>
-    ${visitAsked ? '<span class="sr-btn done">✓ Visita pedida</span>' : `<button type="button" class="sr-btn gold" data-request-visit="${esc(unit.project.id)}">${icon('calendar')}Agendar visita</button>`}`;
+    ${visitAsked ? '<span class="sr-btn done">✓ Solicitud enviada</span>' : `<button type="button" class="sr-btn gold" data-request-visit="${esc(unit.project.id)}">${icon('calendar')}Agendar visita</button>`}`;
 }
 
 // Al mover un control se actualizan solo los números, para no cortar el arrastre del deslizador.
@@ -927,19 +931,20 @@ function go(nextView) {
 function renderCompany() {
   if ((view.name === 'proyecto' && !projectById(view.id)) || (view.name === 'contacto' && !personById(view.id))) view = { name: 'agenda' };
   const activeIn = segment => inSegment(segment).filter(isOpen).length;
-  const titles = { agenda: 'Resumen', inversores: 'Inversores', particulares: 'Particulares', proyecto: projectById(view.id)?.name, contacto: personById(view.id)?.name };
+  const titles = { agenda: 'Resumen', visitas: 'Agenda de visitas', inversores: 'Inversores', particulares: 'Particulares', proyecto: projectById(view.id)?.name, contacto: personById(view.id)?.name };
   const current = view.name === 'contacto' ? (view.back?.name || (segmentOf(personById(view.id)) === 'inversor' ? 'inversores' : 'particulares')) : view.name;
   const navItem = (name, iconName, label, count = null) => `<button class="company-nav-item ${current === name ? 'selected' : ''}" data-go="${name}" ${current === name ? 'aria-current="page"' : ''}>${icon(iconName, 'nav-icon')}<span class="nav-label">${label}</span>${count === null ? '' : `<span class="nav-count">${count}</span>`}</button>`;
   const content = view.name === 'contacto' ? renderContact(personById(view.id))
     : view.name === 'inversores' ? renderSegment('inversor')
     : view.name === 'particulares' ? renderSegment('particular')
     : view.name === 'proyecto' ? renderProject(projectById(view.id))
+    : view.name === 'visitas' ? renderVisits()
     : renderSummary();
   const navProjects = projects.filter(project => detailFor(project).forSale && interestedIn(project.id).some(isOpen));
   companyView.innerHTML = `<div class="company-shell ${navOpen ? 'nav-open' : ''}">
     <aside class="company-sidebar" id="company-sidebar" aria-label="Navegación de MARQ Contigo">
       <div class="company-brand"><b>marQ</b><span>CONTIGO</span><button class="nav-close" data-action="close-nav" aria-label="Cerrar menú">${icon('x')}</button></div>
-      <nav class="company-nav">${navItem('agenda', 'dashboard', 'Resumen')}</nav>
+      <nav class="company-nav">${navItem('agenda', 'dashboard', 'Resumen')}${navItem('visitas', 'calendar', 'Agenda de visitas', visitRequests().length || null)}</nav>
       <p class="company-label">Cartera</p>
       <nav class="company-nav">${navItem('inversores', 'trending-up', 'Inversores', activeIn('inversor'))}${navItem('particulares', 'home', 'Particulares', activeIn('particular'))}</nav>
       <p class="company-label">Proyectos con interesados</p>
@@ -1202,6 +1207,10 @@ function setStatus(person, status) {
 /* ---------- Ficha del contacto ---------- */
 
 function nextCard(person) {
+  const visit = person.visit;
+  if (visit?.status === 'requested') return `<section class="next-card"><span class="eyebrow">Solicitud de visita · ${esc(relativeTime(visit.requestedAt))}</span><h3>${esc(firstName(person))} pidió una visita${projectById(visit.projectId) ? ` por ${esc(projectById(visit.projectId).name)}` : ''}</h3><p>Elegí un turno libre y proponéselo por WhatsApp.</p><div class="next-actions"><button class="admin-primary admin-small" data-visit-cal="${esc(person.id)}">Ver disponibilidad</button></div></section>`;
+  if (visit?.status === 'proposed') return `<section class="next-card"><span class="eyebrow">Visita propuesta</span><h3>${esc(visitDay(visit.date))} · ${esc(visit.time)} · Showroom</h3><p>Esperando la respuesta de ${esc(firstName(person))}.</p></section>`;
+  if (visit?.status === 'accepted') return `<section class="next-card"><span class="eyebrow">${esc(firstName(person))} aceptó la visita</span><h3>${esc(visitDay(visit.date))} · ${esc(visit.time)} · Showroom</h3><p>Confirmala para que quede en la agenda.</p><div class="next-actions"><button class="admin-primary admin-small" data-visit-accept="${esc(person.id)}">Aceptar</button></div></section>`;
   const meeting = isMeeting(person.nextAction) ? person.nextAction : null;
   if (meeting) return `<section class="next-card"><span class="eyebrow">Reunión · ${esc(actionWhen(meeting))}</span><h3>${esc(meeting.text)}</h3><p>${esc(formatDate(meeting.date))} a las ${esc(meeting.time)} h en ${esc(MEETING_PLACES[meeting.place] || meeting.place)}</p><div class="next-actions"><button class="admin-primary admin-small" data-action="complete" data-id="${esc(person.id)}">Registrar cómo fue</button><button class="admin-link" data-action="meeting" data-id="${esc(person.id)}">Reprogramar</button></div></section>`;
   if (person.nextAction) return `<section class="next-card"><span class="eyebrow">Próximo paso · ${esc(relativeDay(person.nextAction.date))}</span><h3>${esc(person.nextAction.text)}</h3><p>${esc(formatDate(person.nextAction.date))}</p><div class="next-actions"><button class="admin-primary admin-small" data-action="complete" data-id="${esc(person.id)}">Registrar lo que pasó</button><button class="admin-link" data-action="set-next" data-id="${esc(person.id)}">Reprogramar</button></div></section>`;
@@ -1334,6 +1343,148 @@ function openShowroomDialog(person) {
     }
   });
 }
+
+/* ---------- Agenda de visitas ----------
+   Del pedido del cliente a la reunión confirmada: el cliente pide una visita desde su showroom, el equipo
+   elige un turno libre en el calendario, se lo propone por WhatsApp y, cuando el cliente acepta, queda agendada. */
+
+const VISIT_SLOTS = ['10:00', '11:30', '15:00', '16:30', '18:00', '19:00'];
+let visitCal = null; // { personId, day, slot }
+const visitRequests = () => people.filter(person => isOpen(person) && person.visit?.status === 'requested');
+const visitAccepted = () => people.filter(person => isOpen(person) && person.visit?.status === 'accepted');
+const visitDay = iso => { const d = new Date(`${iso}T12:00`); return `${capitalize(new Intl.DateTimeFormat('es-AR', { weekday: 'short' }).format(d).replace('.', ''))} ${d.getDate()}/${d.getMonth() + 1}`; };
+const visitDayLong = iso => capitalize(new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${iso}T12:00`)));
+const visitPlace = person => `Showroom ${projectById(person.visit?.projectId)?.name || 'MARQ'}`;
+
+// Turnos ocupados: las reuniones ya agendadas y, para la demo, una ocupación estable por día y horario.
+function slotTaken(iso, time) {
+  if (people.some(person => isMeeting(person.nextAction) && person.nextAction.date === iso && person.nextAction.time === time)) return true;
+  const day = new Date(`${iso}T12:00`).getDay();
+  if (day === 0) return true;
+  const seed = [...`${iso}${time}`].reduce((total, char) => (total * 31 + char.charCodeAt(0)) % 997, 7);
+  return seed % 10 < (day === 6 ? 6 : 3);
+}
+const freeSlots = iso => VISIT_SLOTS.filter(time => !slotTaken(iso, time));
+
+function visitsCalendar(person) {
+  const today = todayIso();
+  const base = new Date(); base.setDate(1);
+  const year = base.getFullYear(), month = base.getMonth();
+  const offset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const days = new Date(year, month + 1, 0).getDate();
+  const isoOf = day => isoDate(new Date(year, month, day));
+  if (!visitCal.day) visitCal.day = [...Array(days).keys()].map(index => isoOf(index + 1)).find(iso => iso > today && freeSlots(iso).length > 2) || today;
+  const cells = [...Array(offset).fill('<i></i>'), ...[...Array(days).keys()].map(index => {
+    const iso = isoOf(index + 1);
+    if (iso < today) return `<i>${index + 1}</i>`;
+    const free = freeSlots(iso).length;
+    const tone = free === 0 ? 'r' : free <= 2 ? 'y' : 'g';
+    return `<button type="button" class="${tone} ${iso === visitCal.day ? 'on' : ''} ${iso === today ? 'today' : ''}" data-visit-day="${iso}" ${free ? '' : 'disabled'}>${index + 1}</button>`;
+  })].join('');
+  const first = firstName(person);
+  return `<section class="vcal" aria-label="Agendar visita">
+    <button type="button" class="dialog-close vcal-close" data-visit-close aria-label="Cerrar">${icon('x')}</button>
+    <span class="eyebrow">Agendar visita · ${esc(person.name)}</span><h2>Elegí un día y un horario</h2>
+    <div class="vcal-body">
+      <div class="vmonth"><b>${esc(capitalize(new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(base)))}</b>
+        <div class="vgrid">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(day => `<span>${day}</span>`).join('')}${cells}</div>
+        <div class="vlegend"><span><i class="g"></i>Disponible</span><span><i class="y"></i>Pocos turnos</span><span><i class="r"></i>Completo</span></div></div>
+      <div class="vslots"><b>${esc(visitDayLong(visitCal.day))}</b><small>${esc(visitPlace(person))}</small>
+        ${VISIT_SLOTS.map(time => slotTaken(visitCal.day, time) ? `<div class="vslot off">${time}<em>Ocupado</em></div>` : `<button type="button" class="vslot ${visitCal.slot === time ? 'on' : ''}" data-visit-slot="${time}">${time}<em>Libre</em></button>`).join('')}
+        <button type="button" class="vprop" data-visit-propose ${visitCal.slot ? '' : 'disabled'}>Proponer a ${esc(first)} →</button>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderVisits() {
+  const today = todayIso();
+  const open = people.filter(isOpen);
+  const overdue = open.filter(person => person.nextAction && person.nextAction.date < today).length;
+  const forToday = open.filter(person => person.nextAction?.date === today).length;
+  const scheduled = open.filter(person => isMeeting(person.nextAction) && person.nextAction.date >= today).length;
+  const when = iso => { const diff = Math.round((new Date(`${iso}T12:00`) - new Date(`${today}T12:00`)) / 86400000); return diff < 0 ? [`Hace ${-diff === 1 ? '1 día' : `${-diff} días`}`, 'over'] : diff === 0 ? ['Hoy', ''] : [`En ${diff === 1 ? '1 día' : `${diff} días`}`, 'later']; };
+  const rows = open.filter(person => person.visit && person.visit.status !== 'confirmed' || person.nextAction).map(person => {
+    const visit = person.visit;
+    const project = projectById(visit?.projectId);
+    let text, chip, action = '', order;
+    if (visit?.status === 'requested') { text = `📅 Pidió una visita${project ? ` · ${project.name}` : ''}`; chip = ['Nueva solicitud', 'gold']; action = `<button type="button" class="mini pri" data-visit-cal="${esc(person.id)}">Ver disponibilidad</button>`; order = 0; }
+    else if (visit?.status === 'proposed') { text = `Visita propuesta · ${visitDay(visit.date)} · ${visit.time} · Showroom`; chip = [`Esperando a ${firstName(person)}`, 'gold']; order = 1; }
+    else if (visit?.status === 'accepted') { text = `Visita propuesta · ${visitDay(visit.date)} · ${visit.time} · Showroom`; chip = [`${firstName(person)} aceptó`, 'ok']; action = `<button type="button" class="mini pri" data-visit-accept="${esc(person.id)}">Aceptar</button>`; order = 1; }
+    else if (isMeeting(person.nextAction)) {
+      const meeting = person.nextAction;
+      text = `📅 Visita ${meeting.place === 'Obra' ? 'a la obra' : `al ${(MEETING_PLACES[meeting.place] || meeting.place).replace(/^el /, '')}`}${projectById(meeting.projectId) ? ` · ${projectById(meeting.projectId).name}` : ''} · ${visitDay(meeting.date)} · ${meeting.time}`;
+      chip = meeting.date >= today ? ['✓ Turno agendado', 'ok'] : when(meeting.date);
+      action = `<button type="button" class="mini" data-action="complete" data-id="${esc(person.id)}">Registrar</button>`; order = meeting.date < today ? 2 : 3;
+    } else {
+      text = person.nextAction.text; chip = when(person.nextAction.date);
+      action = `<button type="button" class="mini" data-action="complete" data-id="${esc(person.id)}">Registrar</button>`; order = person.nextAction.date < today ? 2 : person.nextAction.date === today ? 3 : 4;
+    }
+    return { order, date: visit?.date || person.nextAction?.date || today, html: `<div class="vtask"><button type="button" class="vtask-who" data-go="contacto" data-id="${esc(person.id)}">${avatar(person.name, order < 2 ? 'gold' : '')}<span><b>${esc(person.name)}</b><small>${esc(text)}</small></span></button><span class="vchip ${chip[1]}">${esc(chip[0])}</span>${action}</div>` };
+  }).sort((a, b) => a.order - b.order || a.date.localeCompare(b.date));
+  const pills = [
+    ...visitRequests().map(person => `<div class="vpill"><span class="vico">📅</span><span><b>${esc(firstName(person))} solicita una visita</b><em>· ${esc(projectById(person.visit.projectId)?.name || 'Showroom')}</em></span><button type="button" class="mini pri" data-visit-cal="${esc(person.id)}">Ver disponibilidad</button></div>`),
+    ...visitAccepted().map(person => `<div class="vpill ok"><span class="vico">✓</span><span><b>${esc(firstName(person))} aceptó la visita</b><em>· ${esc(visitDay(person.visit.date))} · ${esc(person.visit.time)}</em></span><button type="button" class="mini pri" data-visit-accept="${esc(person.id)}">Aceptar</button></div>`)
+  ].join('');
+  const calPerson = visitCal && personById(visitCal.personId);
+  return `<div class="visits ${calPerson ? 'with-cal' : ''}">
+    <div class="company-heading"><div><span class="eyebrow">${esc(new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()).toUpperCase())}</span><h1>Agenda de visitas</h1></div></div>
+    ${pills ? `<div class="vpills">${pills}</div>` : ''}
+    <div class="vstats"><div class="alert">Vencidas<b>${overdue}</b></div><div>Para hoy<b>${forToday}</b></div><div>Visitas agendadas<b>${scheduled}</b></div></div>
+    <div class="vtasks">${rows.map(row => row.html).join('') || '<p class="admin-empty">No hay visitas ni pendientes.</p>'}</div>
+    ${calPerson ? visitsCalendar(calPerson) : ''}
+  </div>`;
+}
+
+function proposeVisit(person) {
+  const project = projectById(person.visit?.projectId);
+  const { day, slot } = visitCal;
+  person.visit = { ...person.visit, status: 'proposed', date: day, time: slot, place: 'Showroom' };
+  const text = `¡Hola ${firstName(person)}! Te proponemos visitar el showroom de ${project?.name || 'MARQ'} el ${visitDayLong(day).split(',')[0].toLowerCase()} ${visitDay(day).split(' ')[1]} a las ${slot}. ¿Te queda bien?`;
+  const channel = typeof preferredChannel === 'function' ? preferredChannel(person) : 'whatsapp';
+  if (typeof sendMessage === 'function') sendMessage(person, { text, att: { kind: 'visit', date: day, time: slot } });
+  person.history.push({ date: todayIso(), channel: 'Agenda', note: `Se le propuso visitar el showroom el ${visitDay(day)} a las ${slot}.` });
+  savePeople();
+  visitCal = null;
+  toast(`Propuesta enviada a ${firstName(person)} por WhatsApp`);
+  renderCompany();
+  // Respuesta simulada del cliente, como en el resto de la demo.
+  setTimeout(() => {
+    if (person.visit?.status !== 'proposed') return;
+    if (typeof chatList === 'function') chatList(person, channel).push({ id: `m${Date.now().toString(36)}`, from: 'client', at: new Date().toISOString(), text: `¡Sí, perfecto! Nos vemos el ${visitDayLong(day).split(',')[0].toLowerCase()} 🙌` });
+    person.visit.status = 'accepted';
+    savePeople();
+    toast(`${firstName(person)} aceptó la visita · ${visitDay(day)} · ${slot}`);
+    if (companyMode && !document.querySelector('.update-dialog-backdrop')) renderCompany();
+  }, 6000);
+}
+
+function confirmVisit(person) {
+  const { date, time, projectId } = person.visit;
+  const project = projectById(projectId);
+  person.visit = { ...person.visit, status: 'confirmed' };
+  person.nextAction = { kind: 'meeting', text: `Visita al showroom · ${project?.name || 'MARQ'}`, date, time, place: 'Showroom', projectId };
+  if (person.status === 'Nuevo contacto' || person.status === 'En conversación') person.status = 'Visita agendada';
+  person.history.push({ date: todayIso(), channel: 'Agenda', note: `Visita confirmada: ${visitDay(date)} a las ${time} en el showroom${project ? ` de ${project.name}` : ''}.` });
+  if (typeof chatList === 'function') chatList(person, typeof preferredChannel === 'function' ? preferredChannel(person) : 'whatsapp').push({ id: `m${Date.now().toString(36)}`, from: 'system', at: new Date().toISOString(), text: `✓ Visita confirmada · ${visitDay(date)} · ${time}` });
+  savePeople();
+  toast('✓ Turno agendado');
+  renderCompany();
+}
+
+companyView.addEventListener('click', event => {
+  const target = event.target.closest('[data-visit-cal],[data-visit-day],[data-visit-slot],[data-visit-propose],[data-visit-accept],[data-visit-close]');
+  if (!target) return;
+  const d = target.dataset;
+  if (d.visitCal) { visitCal = { personId: d.visitCal, day: null, slot: null }; if (view.name !== 'visitas') { go({ name: 'visitas' }); return; } }
+  else if (d.visitDay) { visitCal.day = d.visitDay; visitCal.slot = null; }
+  else if (d.visitSlot) visitCal.slot = d.visitSlot;
+  else if (d.visitPropose !== undefined) { const person = personById(visitCal.personId); if (person && visitCal.slot) proposeVisit(person); return; }
+  else if (d.visitAccept) { const person = personById(d.visitAccept); if (person) confirmVisit(person); return; }
+  else if (d.visitClose !== undefined) visitCal = null;
+  renderCompany();
+  if (d.visitCal) companyView.querySelector('.vcal')?.scrollIntoView({ block: 'nearest' });
+});
 
 /* ---------- Tablero de proyecto ---------- */
 
@@ -1733,6 +1884,7 @@ async function pullSignals() {
     person.signals.push({ id, at, type, projectId, label });
     if (type === 'proposal') person.nextAction = { source: 'showroom', text: `Enviar la propuesta que pidió desde su showroom (${projectById(projectId)?.name || 'ver actividad'})`, date: todayIso() };
     if (type === 'visit') {
+      if (person.visit?.status !== 'confirmed') person.visit = { status: 'requested', projectId: projectId || person.projects[0] || null, requestedAt: at };
       const project = projectById(projectId);
       person.nextAction = { source: 'showroom', text: `Coordinar la visita al estudio que pidió desde su showroom${project ? ` (${project.name})` : ''}`, date: todayIso() };
     }

@@ -205,6 +205,7 @@ function improveText(text, tone, person) {
 
 function attachmentHtml(att) {
   if (!att) return '';
+  if (att.kind === 'visit') return '<b class="wa-from">Equipo comercial · MARQ</b>';
   if (att.kind === 'showroom') return `<a class="wa-link" href="${esc(att.url)}" target="_blank" rel="noopener">${att.src ? `<img src="${esc(att.src)}" alt="" loading="lazy">` : ''}<span><b>${esc(att.name)} · Estudio MARQ</b><small>${esc(plural(att.count || 0, 'proyecto', 'proyectos'))} · planos, brochure y agendar visita</small><em>${esc(att.url.replace(/^https?:\/\//, ''))}</em></span></a>`;
   const tag = att.kind === 'project' ? `<span class="wa-studio-tag">${icon('sparkles')}Del proyecto${att.project ? ` · ${esc(att.project)}` : ''}</span>` : '';
   if (att.type === 'video') return `${tag}<button type="button" class="wa-video" data-chat-video="${esc(att.videoId)}" data-chat-vkind="${esc(att.vkind)}" data-chat-vtitle="${esc(att.name)}"><img src="${esc(att.src)}" alt=""><span>${icon('play')}</span></button><div class="wa-file small"><b>${esc(att.name)}</b><small>Video · ${esc(att.project || '')}</small></div>`;
@@ -227,7 +228,9 @@ function chatPanel(person) {
     const day = dayLabel(item.at);
     const sep = day !== lastDay ? `<span class="wa-day">${esc(day)}</span>` : '';
     lastDay = day;
-    return `${sep}<div class="wa-msg ${item.from === 'studio' ? 'out' : 'in'} ${item.att ? 'has-att' : ''}">${attachmentHtml(item.att)}${item.text ? `<p>${esc(item.text)}</p>` : ''}<span class="wa-time">${clock(item.at)}${item.from === 'studio' ? ticks(item.status) : ''}</span></div>`;
+    if (item.from === 'system') return `${sep}<div class="wa-sys">${esc(item.text)}</div>`;
+    const replies = item.att?.kind === 'visit' ? '<div class="wa-replies"><span>Sí, me queda bien</span><span>Prefiero otro horario</span></div>' : '';
+    return `${sep}<div class="wa-msg ${item.from === 'studio' ? 'out' : 'in'} ${item.att && item.att.kind !== 'visit' ? 'has-att' : ''}">${attachmentHtml(item.att)}${item.text ? `<p>${esc(item.text)}</p>` : ''}<span class="wa-time">${clock(item.at)}${item.from === 'studio' ? ticks(item.status) : ''}</span></div>${replies}`;
   }).join('');
   const tabs = channelsFor(person).map(key => {
     const count = unanswered(person, key);
@@ -354,7 +357,7 @@ function personContext(person) {
   });
 }
 
-const describeAtt = att => !att ? '' : att.kind === 'showroom' ? `[link a su showroom personal con ${att.count} proyectos, planos, brochure y botón para agendar visita] ` : `[adjunto: ${att.type === 'video' ? 'video' : att.type === 'plan' ? 'plano' : att.kind === 'doc' ? 'documento' : 'foto'} «${att.name || ''}»${att.project ? ` de ${att.project}` : ''}] `;
+const describeAtt = att => !att ? '' : att.kind === 'visit' ? '' : att.kind === 'showroom' ? `[link a su showroom personal con ${att.count} proyectos, planos, brochure y botón para agendar visita] ` : `[adjunto: ${att.type === 'video' ? 'video' : att.type === 'plan' ? 'plano' : att.kind === 'doc' ? 'documento' : 'foto'} «${att.name || ''}»${att.project ? ` de ${att.project}` : ''}] `;
 const transcript = (person, channel, max = 20) => chatMessages(person, channel).slice(-max).map(item => `${item.from === 'client' ? 'Cliente' : 'Estudio'}: ${describeAtt(item.att)}${item.text}`).join('\n');
 const chatSig = (person, channel) => `${channel}:${chatMessages(person, channel).slice(-1)[0]?.id || 'vacío'}`;
 
