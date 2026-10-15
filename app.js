@@ -171,9 +171,9 @@ const CAMPAIGNS = [
 // Las fechas se calculan desde hoy para que siempre haya visitas pasadas, de hoy y próximas.
 // Las reuniones ya hechas quedan en el historial con visit: 'done' | 'noshow'.
 const initialPeople = [
-  { id:'p1', name:'Ana Martínez', phone:'5493624000001', email:'ana.martinez@correo.com', source:'WhatsApp', showroom:{ projects:['torre-panorama', 'casa-bdn', 'torre-natalini'], at:daysFromToday(-9) }, journey:['Tótem de Torre Natalini', 'mapa 3D', 'WhatsApp'], projects:['torre-panorama'], interest:'Vivienda propia', status:'En conversación', profile:{ typology:'2 dormitorios', budget:100000, financing:'Cuotas del estudio' }, notes:'Busca su primer hogar. Le gusta Torre Panorama y quiere entrar en preventa para mudarse cuando se entregue.', nextAction:{ source:'showroom', text:'Coordinar la visita al estudio que pidió desde su showroom (Torre Panorama)', date:daysFromToday(0) }, history:[
-    { date:daysFromToday(-9), channel:'WhatsApp', note:'Preguntó el precio de Torre Panorama. Se le envió su showroom personal.' },
-    { date:daysFromToday(-4), channel:'Llamada', note:'Busca su primer departamento. Pidió valores y formas de pago en preventa.' }
+  { id:'p1', name:'Ana Martínez', phone:'5493624000001', email:'ana.martinez@correo.com', source:'WhatsApp', showroom:{ projects:['casa-bdn', 'torre-panorama', 'torre-natalini'], at:daysFromToday(-9) }, journey:['Tótem de Torre Natalini', 'mapa 3D', 'WhatsApp'], projects:['casa-bdn'], interest:'Vivienda propia', status:'En conversación', profile:{ typology:'3 dormitorios', budget:100000, financing:'Cuotas del estudio' }, notes:'Busca su primer hogar. Vio Casas BDN en el mapa 3D desde el tótem de Torre Natalini.', nextAction:{ text:'Preguntarle qué le pareció su showroom', date:daysFromToday(0) }, history:[
+    { date:daysFromToday(-9), channel:'WhatsApp', note:'Preguntó el precio de Casas BDN. Se le envió su showroom personal.' },
+    { date:daysFromToday(-4), channel:'Llamada', note:'Busca su primer hogar. Pidió valores y formas de pago en cuotas.' }
   ]},
   { id:'p2', name:'Diego Fernández', phone:'5493624000002', email:'', source:'WhatsApp', showroom:{ projects:['marq-collection', 'torre-natalini'], at:daysFromToday(-7) }, journey:['Sitio web', 'mapa 3D', 'WhatsApp'], projects:['torre-natalini', 'marq-collection'], interest:'Inversión', status:'Visita agendada', profile:{ typology:'2 dormitorios', budget:100000, goal:'Renta', modality:'Indistinto', units:1 }, notes:'Inversor. Compara ingresar en pozo en MARQ Collection con comprar terminado en Torre Natalini.', nextAction:{ kind:'meeting', text:'Reunión en la obra · Torre Natalini', date:daysFromToday(0), time:'17:30', place:'Obra', projectId:'torre-natalini' }, history:[
     { date:daysFromToday(-12), channel:'WhatsApp', note:'Pidió información para invertir en pozo.' },
@@ -233,8 +233,7 @@ const initialSignals = {
   p1: [
     { at: hoursAgo(27), type: 'open', label: 'Abrió su showroom' },
     { at: hoursAgo(27), type: 'profile', label: 'Eligió “Busco mi próxima vivienda”' },
-    { at: hoursAgo(26), type: 'team', projectId: 'torre-panorama', label: 'Conoció al equipo de Torre Panorama' },
-    { at: hoursAgo(21), type: 'visit', projectId: 'torre-panorama', label: 'Pidió agendar una visita por Torre Panorama' }
+    { at: hoursAgo(26), type: 'view', projectId: 'casa-bdn', label: 'Miró Casas BDN + Terreno' }
   ],
   p2: [
     { at: hoursAgo(3), type: 'open', label: 'Abrió su showroom' },
@@ -251,8 +250,8 @@ const initialSignals = {
   ]
 };
 initialPeople.forEach(person => { person.signals = initialSignals[person.id] || []; });
-// Ana pidió una visita desde su showroom y todavía nadie le propuso un horario.
-initialPeople.find(person => person.id === 'p1').visit = { status: 'requested', projectId: 'torre-panorama', requestedAt: new Date(Date.now() - 3600000).toISOString() };
+// Demo: a los 7 segundos de entrar al panel, Ana pide una visita por Casas BDN desde su showroom (como en el video).
+initialPeople.find(person => person.id === 'p1').demoVisit = 'casa-bdn';
 
 const loadList = (key, fallback) => {
   try { const value = JSON.parse(localStorage.getItem(key)); if (Array.isArray(value)) return value; } catch {}
@@ -512,7 +511,7 @@ function renderProjectModal() {
       ${media.length ? `<h4 class="pm-heading">Fotos y renders</h4><div class="pm-gallery">${media.map((item, index) => `<button type="button" class="pm-shot ${index === (projectView.media || 0) ? 'active' : ''}" data-pm-media="${index}" aria-label="Ver foto ${index + 1}"><img src="${esc(item.src)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}`,
     planos: `<div class="pm-gallery is-plans">${plans.map(src => `<button type="button" class="pm-shot" data-pm-plan="${esc(src)}"><img src="${esc(src)}" alt="Plano de ${esc(project.name)}" loading="lazy"></button>`).join('')}</div><p class="pm-source">Tocá un plano para verlo grande.</p>${brochureCard}`
   };
-  modal.querySelector('.modal-scroll').innerHTML = `<div class="pm">
+  morphInto(modal.querySelector('.modal-scroll'), `<div class="pm">
     <div class="pm-media">
        ${current ? `<img class="pm-photo" style="object-position:${PHOTO_FOCUS[current.src] || 'center'}" src="${esc(current.src)}" alt="${esc(project.name)} · foto ${(projectView.media || 0) + 1} de ${media.length}">` : ''}
       <span class="tile-status ${STATUS_TONE(project.status)}">${esc(project.status)}</span>
@@ -529,7 +528,7 @@ function renderProjectModal() {
       <div class="pm-tabs" role="tablist">${tabs.map(([key, label]) => `<button type="button" role="tab" aria-selected="${key === projectView.tab}" class="${key === projectView.tab ? 'active' : ''}" data-pm-tab="${key}">${label}</button>`).join('')}</div>
       <div class="pm-panel" role="tabpanel">${panels[projectView.tab]}</div>
     </div>
-  </div>`;
+  </div>`);
 }
 
 function openLightbox(src, alt = '', video = null) {
@@ -870,6 +869,24 @@ const projectMeetings = (projectId, days = 30) => visitLog().filter(item => item
 const projectScheduled = projectId => scheduledVisits().filter(item => item.projectId === projectId && dayDiff(item.date) >= 0).length;
 
 
+let demoTimer = null;
+function scheduleDemoVisit() {
+  clearTimeout(demoTimer);
+  if (!companyMode || !people.some(person => person.demoVisit)) return;
+  demoTimer = setTimeout(() => {
+    const person = people.find(item => item.demoVisit);
+    if (!companyMode || !person) return;
+    const project = projectById(person.demoVisit);
+    delete person.demoVisit;
+    if (!person.projects.includes(project.id)) person.projects.push(project.id);
+    person.visit = { status: 'requested', projectId: project.id, requestedAt: new Date().toISOString() };
+    person.signals = [...(person.signals || []), { id: `s${Date.now().toString(36)}`, at: new Date().toISOString(), type: 'visit', projectId: project.id, label: `Pidió agendar una visita por ${project.name}` }];
+    person.nextAction = { source: 'showroom', text: `Coordinar la visita que pidió desde su showroom (${project.name})`, date: todayIso() };
+    savePeople();
+    if (!document.querySelector('.update-dialog-backdrop')) renderCompany();
+  }, 7000);
+}
+
 function setMode(enabled) {
   companyMode = enabled;
   document.body.classList.toggle('company-mode', enabled);
@@ -880,7 +897,30 @@ function setMode(enabled) {
   followup = null; navOpen = false;
   document.body.classList.remove('nav-open');
   if (enabled) { view = { name: 'visitas' }; renderCompany(); }
+  scheduleDemoVisit();
   scrollToTop();
+}
+
+// Actualiza el DOM existente con el HTML nuevo tocando solo lo que cambió: así las imágenes
+// (fotos de proyectos, miniaturas del menú) no se destruyen y recrean en cada cambio de pantalla.
+function morph(current, next) {
+  if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) { current.replaceWith(next); return; }
+  if (current.nodeType !== 1) { if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue; return; }
+  for (const { name } of [...current.attributes]) if (!next.hasAttribute(name)) current.removeAttribute(name);
+  for (const { name, value } of [...next.attributes]) if (current.getAttribute(name) !== value) current.setAttribute(name, value);
+  if ('value' in current && current.tagName !== 'BUTTON' && current.value !== next.value && document.activeElement !== current) current.value = next.value;
+  const was = [...current.childNodes], now = [...next.childNodes];
+  now.forEach((child, index) => { if (was[index]) morph(was[index], child); else current.appendChild(child); });
+  was.slice(now.length).forEach(child => child.remove());
+}
+// Solo se actualiza el contenido: el contenedor conserva sus propios atributos (clase, id, aria).
+function morphInto(container, html) {
+  if (!container.childNodes.length) { container.innerHTML = html; return; }
+  const next = document.createElement(container.tagName);
+  next.innerHTML = html;
+  const was = [...container.childNodes], now = [...next.childNodes];
+  now.forEach((child, index) => { if (was[index]) morph(was[index], child); else container.appendChild(child); });
+  was.slice(now.length).forEach(child => child.remove());
 }
 
 function setNav(open) {
@@ -916,7 +956,7 @@ function renderCompany() {
     : view.name === 'proyecto' ? renderProject(projectById(view.id))
     : renderVisits();
   const navProjects = projects.filter(project => detailFor(project).forSale && interestedIn(project.id).some(isOpen));
-  companyView.innerHTML = `<div class="company-shell ${navOpen ? 'nav-open' : ''}">
+  morphInto(companyView, `<div class="company-shell ${navOpen ? 'nav-open' : ''}">
     <aside class="company-sidebar" id="company-sidebar" aria-label="Navegación de MARQ Contigo">
       <div class="company-brand"><b>marQ</b><span>CONTIGO</span><button class="nav-close" data-action="close-nav" aria-label="Cerrar menú">${icon('x')}</button></div>
       <nav class="company-nav">${navTwo('visitas', 'calendar', 'Agenda de visitas', '', navAct(visitRequests().length + visitAccepted().length, 'nueva', 'nuevas', 'gold'))}</nav>
@@ -943,7 +983,7 @@ function renderCompany() {
       <div class="company-content">${content}${view.name === 'contacto' && visitCal ? `<div class="vcal-modal">${visitsCalendar(visitCal.personId ? personById(visitCal.personId) : null)}</div>` : ''}</div>
     </div>
     ${visitPills()}
-  </div>`;
+  </div>`);
   document.body.classList.toggle('nav-open', navOpen);
   const wall = companyView.querySelector('#wa-wall');
   if (wall) wall.scrollTop = wall.scrollHeight;
@@ -1722,7 +1762,7 @@ companyView.addEventListener('click', event => {
   else if (action === 'reset') {
     if (!confirm('¿Restablecer los datos de ejemplo? Se borran los contactos, interacciones y novedades cargados en esta demo.')) return;
     projects = structuredClone(initialProjects); people = structuredClone(initialPeople); followup = null;
-    saveData(); renderProjects(); go({ name: 'visitas' });
+    saveData(); renderProjects(); go({ name: 'visitas' }); scheduleDemoVisit();
   }
   else if (action === 'new-contact') openContactDialog(null, target.dataset.interest);
   else if (action === 'edit-contact') openContactDialog(person);

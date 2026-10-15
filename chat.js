@@ -21,10 +21,9 @@ const planNatalini = { kind: 'project', type: 'plan', src: 'https://estudiomarq.
 // Conversaciones de ejemplo, coherentes con el historial de cada contacto.
 const CHAT_SEED = {
   p1: { whatsapp: [
-    msg('client', chatAt(9, '19:02'), 'Hola! Vi Torre Panorama en el tótem que está en Natalini. ¿Me pasan información?'),
-    msg('studio', chatAt(9, '19:20'), '¡Hola Ana! Gracias por escribirnos. Te armé un espacio con toda la información de Torre Panorama y el equipo que lo lleva adelante. Miralo cuando quieras.'),
-    msg('client', chatAt(9, '21:47'), 'Gracias! Lo estoy mirando. Busco mi primer departamento, de 2 dormitorios.'),
-    msg('client', chatHoursAgo(21), 'Pedí una visita desde la página. ¿Cuándo podría ir al estudio?')
+    msg('client', chatHoursAgo(26), 'Hola! Vi Casas BDN en el mapa 3D. ¿Qué precio tiene?'),
+    msg('studio', chatHoursAgo(25.8), '¡Hola Ana! Casas BDN es casa + terreno en hasta 84 cuotas. Te armamos un espacio con todo para que lo veas tranquila.'),
+    msg('client', chatHoursAgo(25), '¡Gracias! Lo estoy mirando. Busco mi primer hogar, de 3 dormitorios.')
   ], instagram: [] },
   p2: { whatsapp: [
     msg('client', chatAt(6, '18:41'), 'Hola, ¿cómo están? Quería saber si puedo ver una unidad terminada de 2 dormitorios antes de decidir.'),
@@ -456,7 +455,9 @@ function renderChat({ keepScroll = false, focus = true } = {}) {
     if (input.value !== draft) { input.value = draft; input.setSelectionRange(draft.length, draft.length); }
     autoGrow(input);
   } else {
-    panel.outerHTML = chatPanel(person);
+    const fresh = document.createElement('div');
+    fresh.innerHTML = chatPanel(person);
+    morph(panel, fresh.firstElementChild);
   }
   const fresh = companyView.querySelector('#wa-wall');
   if (fresh) fresh.scrollTop = keepScroll && scroll !== undefined ? scroll : fresh.scrollHeight;
