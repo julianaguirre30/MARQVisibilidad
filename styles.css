@@ -9520,3 +9520,15 @@ body.company-mode .reco-card:has(input:checked) {
 body:has(.update-dialog-backdrop) .vpills-float { display: none; }
 .who-visit { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 4px 0 2px; min-height: 42px; }
 .who-visit .icon { width: 15px; height: 15px; }
+
+/* Etapa como barra de pasos: se ve en qué punto está y se cambia tocando un paso */
+.who-steps { margin: 16px 0 6px; }
+.ws-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.ws-head span { color: #8a8279; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.ws-head b { font-size: 0.95rem; }
+.ws-head small { margin-left: auto; color: #8a8279; font-size: 0.72rem; font-weight: 700; }
+.ws-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.ws-bar button { height: 8px; padding: 0; border: 0; border-radius: 999px; background: #ece7df; cursor: pointer; transition: background 0.15s, transform 0.15s; }
+.ws-bar button:hover { transform: scaleY(1.5); background: #d9ba88; }
+.ws-bar button.on { background: #b88642; }
+.ws-bar button.cur { background: #141312; }

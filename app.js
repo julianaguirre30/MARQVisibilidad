@@ -2,9 +2,9 @@
 // deberían leerse y guardarse mediante una API con acceso autenticado.
 const MARQ_WHATSAPP = '5493624119351'; // WhatsApp público del estudio (estudiomarq.com.ar).
 const STORAGE_KEYS = { projects: 'marq-projects-v10', people: 'marq-people-v10', webStats: 'marq-web-stats-v1' };
-const STATUSES = ['Nuevo contacto', 'En conversación', 'Información enviada', 'Visita agendada', 'En negociación', 'Cerró operación', 'Sin interés por ahora'];
-const CLOSED_STATUSES = ['Cerró operación', 'Sin interés por ahora'];
-const STATUS_TONES = { 'Nuevo contacto': 'tone-new', 'En conversación': 'tone-active', 'Información enviada': 'tone-active', 'Visita agendada': 'tone-warm', 'En negociación': 'tone-warm', 'Cerró operación': 'tone-done', 'Sin interés por ahora': 'tone-muted' };
+const STATUSES = ['Nuevo contacto', 'En conversación', 'Información enviada', 'Visita agendada', 'En negociación', 'Cerró operación'];
+const CLOSED_STATUSES = ['Cerró operación'];
+const STATUS_TONES = { 'Nuevo contacto': 'tone-new', 'En conversación': 'tone-active', 'Información enviada': 'tone-active', 'Visita agendada': 'tone-warm', 'En negociación': 'tone-warm', 'Cerró operación': 'tone-done' };
 // Sin "Alquiler": los alquileres los manejan las inmobiliarias, no el estudio.
 // "A definir" queda solo por compatibilidad: en MARQ Contigo esos contactos se tratan como particulares.
 const INTERESTS = ['Vivienda propia', 'Inversión', 'A definir'];
@@ -1084,7 +1084,6 @@ function segmentTable(list, segment) {
 }
 
 function boardView(list) {
-  const lost = list.filter(person => person.status === 'Sin interés por ahora');
   const card = person => {
     const profile = person.profile || {};
     return `<article class="board-card" draggable="true" data-drag="${esc(person.id)}" data-go="contacto" data-id="${esc(person.id)}" tabindex="0" aria-label="${esc(person.name)}">
@@ -1095,8 +1094,7 @@ function boardView(list) {
     </article>`;
   };
   return `<p class="board-hint"><span class="hint-pointer">Arrastrá una tarjeta para cambiar la etapa. Tocala para abrir la ficha.</span><span class="hint-touch">Deslizá para ver cada etapa. Tocá una tarjeta para abrir la ficha y cambiarla de etapa.</span></p>
-    <div class="board" style="grid-template-columns:${BOARD_COLUMNS.map(status => list.some(person => person.status === status) ? 'minmax(180px, 1fr)' : 'minmax(118px, 0.55fr)').join(' ')}">${BOARD_COLUMNS.map(status => { const cards = list.filter(person => person.status === status); return `<section class="board-col ${cards.length ? '' : 'is-empty'}" data-drop="${esc(status)}"><header>${statusChip(status)}<span>${cards.length}</span></header>${cards.map(card).join('') || '<p class="board-empty">Sin contactos</p>'}</section>`; }).join('')}</div>
-    ${lost.length ? `<p class="panel-foot">${plural(lost.length, 'contacto', 'contactos')} sin interés por ahora: ${lost.map(person => `<button class="inline-link" data-go="contacto" data-id="${esc(person.id)}">${esc(person.name)}</button>`).join(', ')}.</p>` : ''}`;
+    <div class="board" style="grid-template-columns:${BOARD_COLUMNS.map(status => list.some(person => person.status === status) ? 'minmax(180px, 1fr)' : 'minmax(118px, 0.55fr)').join(' ')}">${BOARD_COLUMNS.map(status => { const cards = list.filter(person => person.status === status); return `<section class="board-col ${cards.length ? '' : 'is-empty'}" data-drop="${esc(status)}"><header>${statusChip(status)}<span>${cards.length}</span></header>${cards.map(card).join('') || '<p class="board-empty">Sin contactos</p>'}</section>`; }).join('')}</div>`;
 }
 
 function setStatus(person, status) {
@@ -1145,8 +1143,11 @@ function renderContact(person) {
     <div class="client-layout">
       <aside class="who-card">
         <div class="who-id">${avatar(person.name, 'large')}<button class="who-edit-icon" data-action="edit-contact" data-id="${id}" aria-label="Editar datos" title="Editar datos">${icon('pencil')}</button><div><h1>${esc(person.name)}</h1><small>${segmentBadge(person)}${first ? `Cliente desde ${esc(formatDate(first))}` : ''}</small></div></div>
-        <label class="who-stage"><span>Etapa</span><select id="contact-status-select" class="status-select">${options(STATUSES, person.status)}</select></label>
-        <button class="admin-primary who-visit" data-visit-cal="${id}">${icon('calendar')}Agendar visita</button>
+        <div class="who-steps" role="group" aria-label="Etapa">
+          <div class="ws-head"><span>Etapa</span><b>${esc(person.status)}</b><small>${STATUSES.indexOf(person.status) + 1} de ${STATUSES.length}</small></div>
+          <div class="ws-bar">${STATUSES.map((status, index) => `<button type="button" class="${index <= STATUSES.indexOf(person.status) ? 'on' : ''} ${status === person.status ? 'cur' : ''}" data-stage="${esc(status)}" title="${esc(status)}" aria-label="Pasar a ${esc(status)}" aria-pressed="${status === person.status}"></button>`).join('')}</div>
+        </div>
+        <button class="admin-primary who-visit" data-visit-${isMeeting(person.nextAction) ? 'reschedule' : 'cal'}="${id}">${icon('calendar')}${isMeeting(person.nextAction) || person.status === 'Visita agendada' ? 'Reprogramar visita' : 'Agendar visita'}</button>
         <section class="who-sec"><h4>Contacto</h4>
           <div class="who-pills">${person.phone ? `<span class="who-pill">${icon('whatsapp')}+${esc(person.phone)}</span>` : '<span class="who-pill muted">Sin teléfono · Instagram</span>'}${person.email ? `<span class="who-pill">${icon('send')}${esc(person.email)}</span>` : `<button class="who-pill add" data-action="edit-contact" data-id="${id}">${icon('plus')}Agregar email</button>`}</div>
         </section>
@@ -1804,6 +1805,13 @@ companyView.addEventListener('change', event => {
   } else if (target.id === 'contact-status-select') {
     setStatus(personById(view.id), target.value);
   }
+});
+
+companyView.addEventListener('click', event => {
+  const step = event.target.closest('[data-stage]');
+  if (!step || view.name !== 'contacto') return;
+  const person = personById(view.id);
+  if (person && person.status !== step.dataset.stage) setStatus(person, step.dataset.stage);
 });
 
 companyView.addEventListener('input', event => {
