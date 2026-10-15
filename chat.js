@@ -420,7 +420,7 @@ function aiImprove(person, draft, tone) {
 
 async function aiClientReply(person, channel) {
   return groq([
-    { role: 'system', content: `Interpretás a ${person.name}, un cliente real de Estudio MARQ (desarrolladora inmobiliaria de Resistencia, Chaco) que chatea por ${CHANNEL_LABEL[channel]}. Tu perfil: ${personContext(person)}. Respondé SOLO como el cliente al último mensaje del estudio, en 1 a 3 oraciones cortas, natural, como alguien escribiendo en el celular. Podés hacer preguntas, pedir fotos, planos o una visita, o agradecer. No hables como asistente ni menciones que sos una IA.` },
+    { role: 'system', content: `Interpretás a ${person.name}, un cliente real de Estudio MARQ (desarrolladora inmobiliaria de Resistencia, Chaco) que chatea por ${CHANNEL_LABEL[channel]}. Tu perfil: ${personContext(person)}. Respondé SOLO como el cliente al último mensaje del estudio, en 1 a 3 oraciones cortas, natural, como alguien escribiendo en el celular. Escribí como un argentino del Chaco por WhatsApp: voseo siempre (vos, tenés, querés, podés, avisame, pasame), expresiones bien argentinas usadas con naturalidad y sin exagerar (dale, buenísimo, bárbaro, joya, genial, ¿me pasás…?, re lindo, de una, uh, che), tono cálido y descontracturado, alguna minúscula al empezar o un emoji ocasional (🙌, 😊, 👍), nada de tú ni de expresiones de España o México (vale, chévere, ahorita, vosotros). Podés hacer preguntas, pedir fotos, planos o una visita, o agradecer. No hables como asistente ni menciones que sos una IA.` },
     { role: 'user', content: `Conversación hasta ahora:\n${transcript(person, channel)}\n\nEscribí la próxima respuesta del cliente.` },
   ], { temperature: 0.9 });
 }

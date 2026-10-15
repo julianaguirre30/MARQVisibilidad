@@ -9479,3 +9479,42 @@ body.company-mode .reco-card:has(input:checked) {
 .who-pill .icon { flex: none; width: 13px; height: 13px; color: #8a8279; }
 .who-pill.muted { color: #6b665f; }
 .who-pill.add { border-style: dashed; color: #7a5418; cursor: pointer; }
+
+/* ==========================================================================
+   Ventanas de formulario (registrar, nuevo contacto, próximo paso…)
+   Campos uniformes, encabezado fijo y botones siempre abajo a la izquierda.
+   ========================================================================== */
+.update-dialog-backdrop { padding: 20px; background: rgba(20, 18, 15, 0.5); backdrop-filter: blur(3px); }
+.update-dialog-backdrop .update-dialog { width: min(600px, 100%); max-height: min(88vh, 860px); gap: 16px; padding: 0 28px; border: 1px solid rgba(20, 18, 15, 0.08); border-radius: 24px; background: #fbf9f5; box-shadow: 0 40px 80px -30px rgba(20, 14, 6, 0.55); }
+.update-dialog-backdrop .update-dialog > .admin-panel-head { position: sticky; top: 0; z-index: 2; margin: 0 -28px; padding: 24px 28px 14px; background: linear-gradient(#fbf9f5 80%, rgba(251, 249, 245, 0)); }
+.update-dialog-backdrop .update-dialog .eyebrow { color: #b88642; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.18em; }
+.update-dialog-backdrop .update-dialog h2 { margin: 6px 0 0; font: 600 1.45rem/1.15 "DM Sans", sans-serif; letter-spacing: -0.03em; }
+.update-dialog-backdrop .update-dialog > p { margin: -6px 0 0; color: #55514b; font-size: 0.88rem; line-height: 1.5; }
+.update-dialog-backdrop .update-dialog label { gap: 7px; color: #3b3833; font-size: 0.76rem; font-weight: 700; }
+.update-dialog-backdrop .update-dialog input:not([type="checkbox"]):not([type="radio"]),
+.update-dialog-backdrop .update-dialog select,
+.update-dialog-backdrop .update-dialog textarea { box-sizing: border-box; width: 100%; min-height: 46px; margin: 0; padding: 11px 14px; border: 1px solid rgba(20, 18, 15, 0.14); border-radius: 12px; background-color: #fff; color: #141312; font: 500 0.9rem "Manrope", sans-serif; box-shadow: 0 1px 0 rgba(20, 18, 15, 0.02); transition: border-color 0.15s, box-shadow 0.15s; }
+.update-dialog-backdrop .update-dialog select { appearance: none; -webkit-appearance: none; padding-right: 40px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b665f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; cursor: pointer; }
+.update-dialog-backdrop .update-dialog textarea { min-height: 104px; line-height: 1.5; resize: vertical; }
+.update-dialog-backdrop .update-dialog input::placeholder, .update-dialog-backdrop .update-dialog textarea::placeholder { color: #a39b8f; }
+.update-dialog-backdrop .update-dialog input:focus, .update-dialog-backdrop .update-dialog select:focus, .update-dialog-backdrop .update-dialog textarea:focus { border-color: #141312; outline: none; box-shadow: 0 0 0 3px rgba(184, 134, 66, 0.22); }
+.update-dialog-backdrop .field-row { gap: 14px; align-items: end; }
+.update-dialog-backdrop .field-hint { margin: -8px 0 0; color: #8a8279; font-size: 0.76rem; }
+.update-dialog-backdrop .dialog-section { margin: 6px 0 -4px; padding-top: 18px; border-top: 1px solid rgba(20, 18, 15, 0.1); color: #7a5418; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+/* Proyectos de interés: pastillas que se marcan */
+.update-dialog-backdrop .check-group { gap: 8px; padding: 12px 14px 14px; border: 1px solid rgba(20, 18, 15, 0.12); border-radius: 14px; background: #fff; }
+.update-dialog-backdrop .check-group legend { color: #3b3833; font-size: 0.76rem; font-weight: 700; }
+.update-dialog-backdrop .update-dialog .check-group label { padding: 7px 12px; border: 1px solid rgba(20, 18, 15, 0.14); border-radius: 999px; background: #faf8f4; font-size: 0.82rem; font-weight: 600; transition: background 0.15s, color 0.15s; }
+.update-dialog-backdrop .update-dialog .check-group label:has(input:checked) { border-color: #141312; background: #141312; color: #fff; }
+.update-dialog-backdrop .check-group input { width: 14px; height: 14px; margin: 0; accent-color: #d9ba88; }
+/* Botones siempre visibles, abajo a la derecha */
+.update-dialog-backdrop .dialog-actions { position: sticky; bottom: 0; z-index: 2; justify-content: flex-end; gap: 10px; margin: 4px -28px 0; padding: 16px 28px 22px; border-top: 1px solid rgba(20, 18, 15, 0.08); background: #fbf9f5; }
+.update-dialog-backdrop .dialog-actions button { min-height: 44px; padding: 0 22px; }
+@media (max-width: 640px) {
+  .update-dialog-backdrop { padding: 0; align-items: end; }
+  .update-dialog-backdrop .update-dialog { max-height: 94dvh; border-radius: 24px 24px 0 0; padding: 0 18px; }
+  .update-dialog-backdrop .update-dialog > .admin-panel-head { margin: 0 -18px; padding: 20px 18px 12px; }
+  .update-dialog-backdrop .dialog-actions { margin: 4px -18px 0; padding: 14px 18px calc(16px + env(safe-area-inset-bottom)); }
+  .update-dialog-backdrop .update-dialog input:not([type="checkbox"]), .update-dialog-backdrop .update-dialog select, .update-dialog-backdrop .update-dialog textarea { font-size: 16px; }
+}
+body:has(.update-dialog-backdrop) .vpills-float { display: none; }
