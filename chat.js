@@ -89,6 +89,20 @@ function dayLabel(iso) {
 }
 // Mensajes de cierre ("¡gracias!", "perfecto") que no necesitan respuesta.
 const isAck = text => text.length < 60 && !/\?/.test(text) && /^(¡?\s*)(perfecto|genial|gracias|muchas gracias|dale|ok|buen[ií]simo|joya|qu[eé] lindo|listo)/i.test(text.trim());
+// Pedido de visita escrito en el chat: se trata igual que el que llega desde el showroom.
+const VISIT_ASK = /visita|visitar|ir a ver|pasar a ver|conocer(lo|la|las|los)? en persona|cu[aá]ndo (puedo|podr[ií]a|podemos) (ir|pasar)|ir al (estudio|showroom)|ir a la obra|agendar|un turno|ver la unidad|ver el (departamento|depto)/i;
+const visitOpen = person => ['requested', 'proposed', 'accepted'].includes(person.visit?.status) || (isMeeting(person.nextAction) && person.nextAction.date >= todayIso());
+function chatAsksVisit(person, channel) {
+  const list = chatMessages(person, channel);
+  const last = list[list.length - 1];
+  return Boolean(last && last.from === 'client' && VISIT_ASK.test(last.text) && !visitOpen(person));
+}
+function noteVisitAsk(person, channel, text) {
+  if (!VISIT_ASK.test(text) || visitOpen(person)) return;
+  person.visit = { status: 'requested', projectId: mainProject(person)?.id || null, requestedAt: new Date().toISOString(), source: 'chat' };
+  person.history.push({ date: todayIso(), channel: CHANNEL_LABEL[channel], note: 'Pidió una visita por el chat.' });
+}
+
 const interestedProjects = person => person.projects.map(projectById).filter(Boolean);
 const mainProject = person => interestedProjects(person)[0];
 
@@ -242,6 +256,7 @@ function chatPanel(person) {
   const body = tab === 'actividad'
     ? `<div class="chat-activity">${activityPanel(person)}</div>`
     : `<div class="wa-wall" id="wa-wall">${list.length ? wall : `<div class="wa-empty">${icon(channel === 'whatsapp' ? 'whatsapp' : 'sparkles')}<b>Todavía no hay conversación por ${CHANNEL_LABEL[channel]}</b><span>Escribile para empezar.</span></div>`}${chatUi.typing[person.id] ? '<div class="wa-msg in typing"><span></span><span></span><span></span></div>' : ''}</div>
+      ${person.visit?.status === 'requested' || chatAsksVisit(person, channel) ? `<div class="chat-visit"><span class="chat-visit-ico">📅</span><span><b>${esc(firstName(person))} ${person.visit?.status === 'requested' ? 'pidió' : 'pide'} una visita</b><small>Elegí un turno y proponéselo por ${CHANNEL_LABEL[channel]}</small></span><button type="button" data-visit-cal="${esc(person.id)}">Ver turnos</button></div>` : ''}
       ${suggestions.length ? `<div class="chat-sugs"><span class="chat-sugs-lead">${icon('sparkles')}Sugerencias</span>${suggestions.map((text, index) => `<button type="button" class="chat-sug" data-chat-sug="${index}" data-text="${esc(text)}">${esc(text)}</button>`).join('')}<button type="button" class="chat-sugs-close" data-chat-sugs-close aria-label="Ocultar sugerencias">${icon('x')}</button></div>` : ''}
       ${chatUi.assist ? assistPanel(person) : ''}
       <div class="chat-composer">
@@ -507,6 +522,7 @@ function simulateReply(person, channel, sent) {
   Promise.all([reply, typingAt.then(() => new Promise(done => setTimeout(done, 2000)))]).then(([text]) => {
     chatUi.typing[person.id] = false;
     chatList(person, channel).push({ id: chatId(), from: 'client', at: new Date().toISOString(), text: text || answers });
+    noteVisitAsk(person, channel, text || answers);
     savePeople();
     if (currentChatPerson()?.id === person.id) renderChat({ focus: false });
   });
