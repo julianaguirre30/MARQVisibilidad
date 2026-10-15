@@ -9467,3 +9467,15 @@ body.company-mode .reco-card:has(input:checked) {
   .client-main > .chat-card { flex: 1; min-height: 0; height: auto; }
   .client-layout > .who-card { position: static; max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
 }
+
+/* Ficha: editar como ícono junto al nombre; contacto en pastillas */
+.who-id { position: relative; }
+.who-id > div { flex: 1; min-width: 0; padding-right: 34px; }
+.who-edit-icon { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid rgba(20, 18, 15, 0.14); border-radius: 50%; background: #fff; color: #6b665f; cursor: pointer; }
+.who-edit-icon:hover { border-color: #141312; color: #141312; }
+.who-edit-icon .icon { width: 14px; height: 14px; }
+.who-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.who-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 11px; border: 1px solid rgba(20, 18, 15, 0.1); border-radius: 999px; background: #faf8f4; color: #141312; font: inherit; font-size: 0.8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who-pill .icon { flex: none; width: 13px; height: 13px; color: #8a8279; }
+.who-pill.muted { color: #6b665f; }
+.who-pill.add { border-style: dashed; color: #7a5418; cursor: pointer; }
